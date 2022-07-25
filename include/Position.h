@@ -13,7 +13,7 @@ struct Position
     bool kingsidecastling[2];
     bool queensidecastling[2];
     char promotions[16];
-
+    float evaluation;
 
     int GetColour(int square);
     Position();

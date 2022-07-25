@@ -388,7 +388,8 @@ void Board::DisplayMoves(Position*& pos)
     }
 }
 
-Board::Board()
+Board::Board() : 
+talsim()
 {
     current = new Position();
 
