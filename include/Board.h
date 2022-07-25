@@ -14,8 +14,8 @@ class Board
 
     void PrintPosition(Position*& pos);
     void DisplayMoves(Position*& pos);
-    void Move(int id, int destination);
-    Position* Move(int id, int destination, Position*& pos);
+    void Move(int id, int destination, char prom = 'q');
+    Position* Move(int id, int destination, Position*& pos, char prom = 'q');
     Board();
     Board(const Board& b);
     ~Board();

@@ -5,17 +5,16 @@
 int main()
 {
     Board b;
-    b.PrintPosition(b.current);
-    // b.Move(9, 3);
-    // b.Move(25, 4);
-    // b.Move(7, 42);
-    // b.Move(29, 36);
-    b.Move(9, 3);
+    b.Move(12, 27);
+    b.Move(27, 20);
+    b.Move(12, 20);
+    b.Move(26, 12);
+    b.Move(12, 13);
+    b.Move(25, 5);
+    b.Move(12, 14);
     b.Move(25, 4);
-    b.Move(10, 11);
-    b.Move(25, 11);
-    b.Move(11, 19);
-    b.Move(25, 18);
+    b.Move(12, 7, 'n');
+    b.Move(25, 3);
     b.PrintPosition(b.current);
     b.DisplayMoves(b.current);
 

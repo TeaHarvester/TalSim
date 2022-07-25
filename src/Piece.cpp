@@ -12,6 +12,7 @@ bool Piece::Legal(int destination)
         }
     }
 
+    std::cout << std::endl << "can't move there!" << std::endl;
     return false;
 }
 
@@ -21,16 +22,14 @@ Piece::Piece()
 Piece::Piece(int number, int pos) :
 id(number),
 colour(id <= 16? 1 : -1),
-position(pos),
-moved(true)
+position(pos)
 {
     vectors = std::vector<std::vector<int>>(1);
     vectors[0] = std::vector<int>{0, 0};
 }
 
 Pawn::Pawn(int number, int pos) : 
-Piece(number, pos),
-moved(false)
+Piece(number, pos)
 {
     name = 'p';
 }
@@ -62,8 +61,7 @@ Piece(number, pos)
 }
 
 Rook::Rook(int number, int pos) : 
-Piece(number, pos),
-moved(false)
+Piece(number, pos)
 {
     name = 'r';
 
@@ -85,8 +83,7 @@ Piece(number, pos)
 }
 
 King::King(int number, int pos) : 
-Piece(number, pos),
-moved(false)
+Piece(number, pos)
 {   
     name = 'k';
 
