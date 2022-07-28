@@ -60,7 +60,7 @@ passant(pos->passant)
     queensidecastling[1] = pos->queensidecastling[1];
 }
 
-Position::Position(const Position* pos, int id, int destination, char prom ) : 
+Position::Position(const Position* pos, int id, int destination, char prom) : 
 turn(pos->turn),
 passant(-1)
 {
@@ -96,7 +96,7 @@ passant(-1)
     occupancy[pos->piece_occupancy[id - 1]] = 0;
     piece_occupancy[id - 1] = destination;
 
-    if ((id > 8 && id <= 16) || (id > 24 || id <= 32))
+    if ((id > 8 && id <= 16) || (id > 24 && id <= 32))
     {
         float promotion_rank = 3.5 + float(pos->turn)*3.5;
         int index = (turn == 1 ? id - 9 : id -17);

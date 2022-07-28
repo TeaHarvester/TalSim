@@ -49,7 +49,36 @@ void Engine::Evaluate(Position*& pos)
     std::cout << std::endl << "evaluation: " << evaluation << std::endl;
 }
 
-Engine::Engine()
+void Engine::BuildTree(const int depth, Tree*& t)
+{
+    board.GetMoves(t->position);
+
+    for (int i = 0; i < 16; ++i)
+    {
+        Piece*& p = board.pieces[i + 8*(1 - t->position->turn)];
+        int n_moves = p->moves.size();
+
+        for (int j = 0; j < n_moves; ++j)
+        {
+            Position* new_pos = board.Move(p->id, p->moves[j], t->position);
+            t->Branch(new_pos);
+        }
+    }
+
+    if (t->layer < depth)
+    {
+        int n_branch = t->branches.size();
+
+        for (int i = 0; i < n_branch; ++i)
+        {
+            BuildTree(depth, t->branches[i]);
+        }
+    }
+}
+
+Engine::Engine(Board& b) : 
+tree(NULL),
+board(b)
 {
     value[0] = 5;
     value[1] = 3;
@@ -59,4 +88,9 @@ Engine::Engine()
     value[5] = 3;
     value[6] = 3;
     value[7] = 5;
+}
+
+Engine::~Engine()
+{
+    delete tree;
 }
