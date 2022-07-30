@@ -32,6 +32,6 @@ int main()
     std::vector<Tree*> branches = t->GetBranches(2);
     int n_branch = branches.size();
     srand(time(NULL));
-    b.PrintPosition(branches[rand() % n_branch]->position);
+    b.PrintPosition(branches[10000]->position);
     return 0;
 }
