@@ -1,5 +1,6 @@
 #include "Position.h"
 #include "Position.h"
+#include "Board.h"
 
 int Position::Move(const int id, const int destination, const char prom)
 {
@@ -77,6 +78,7 @@ int Position::Move(const int id, const int destination, const char prom)
         else if (destination % 8 == 7*(1 - parity))
         {
             delete p;
+            p = NULL;
 
             switch (prom)
             {
@@ -345,38 +347,120 @@ void Position::TrimMoves()
 
             else
             {
-                Position new_pos = Position(this);
-                new_pos.Move(p->id, destination);
+                Position* new_pos = new Position(this);
+                new_pos->Move(p->id, destination);
 
-                for (int j = 16*(1 - parity); j < 16*(2 - parity); ++j)
+                if (new_pos->Check(turn))
                 {
-                    new_pos.GetMoves(j);
-                    Piece*& q = new_pos.pieces[j];
-
-                    if (!q)
-                    {
-                        continue;
-                    }
-
-                    int n_moves = q->moves.size();
-
-                    for (int k = 0; k < n_moves; ++k)
-                    {
-                        int& move = q->moves[k];
-
-                        if (move == pieces[4 + 16*parity]->position)
-                        {
-                            iter = p->moves.erase(iter);
-                            goto end;
-                        }
-                    }
+                    iter = p->moves.erase(iter);
+                    delete new_pos;
+                    goto end;
                 }
+
+                delete new_pos;
             }
 
             ++iter;
+
             end:;
         }
     }
+}
+
+bool Position::Check(int colour)
+{
+    int parity = (1 - colour)/2;
+    Piece*& king = pieces[4 + 16*parity];
+    int pos_y = king->position % 8;
+    int pos_x = (king->position - pos_y)/8;
+
+    int vectors[4][2] = {{1, 0}, {0, 1}, {1, 1}, {1, -1}};
+    int hops[4][2] = {{-2, 1}, {-1, 2}, {1, 2}, {2, 1}};
+
+    for (int i = 0; i < 4; ++i)
+    {
+        for (int direction = -1; direction < 2; direction += 2)
+        {
+            int x_hop = direction*hops[i][1];
+            int y_hop = direction*hops[i][0];
+
+            if (pos_x + x_hop <= 7 && 
+                pos_y + y_hop <= 7 && 
+                pos_x + x_hop >= 0 && 
+                pos_y + y_hop >= 0)
+            {
+                int leap = 8*(pos_x + x_hop) + pos_y + y_hop;
+
+                if (colour*GetColour(leap) == -1 && GetAggressor(leap, -1*colour) == 'n')
+                {
+                    return true;
+                }
+            }
+
+            int x = pos_x;
+            int y = pos_y;
+            int x_movement = direction*vectors[i][1];
+            int y_movement = direction*vectors[i][0];
+
+            while (x + x_movement <= 7 && 
+                    y + y_movement <= 7 && 
+                    x + x_movement >= 0 && 
+                    y + y_movement >= 0)
+            {
+                x += x_movement;
+                y += y_movement;
+
+                if (GetColour(8*x + y)*colour == 1)
+                {
+                    break;
+                }
+
+                else if (GetColour(8*x + y)*colour == -1)
+                {
+                    char aggressor = GetAggressor(8*x + y, -1*colour);
+
+                    if (aggressor == 'q' ||
+                        ((aggressor == 'r') && (!vectors[i][0] || !vectors[i][1])) ||
+                        ((aggressor == 'b') && (vectors[i][0] && vectors[i][1])))
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+
+    Piece*& opposing_king = pieces[4 + 16*(1 - parity)];
+    int op_y = opposing_king->position % 8;
+    int op_x = (opposing_king->position - op_y)/8;
+
+    int sep_x = pos_x - op_x;
+    int sep_y = pos_y - op_y;
+
+    if ((sep_x == 1 || sep_x == -1) &&
+        (sep_y == 1 || sep_y == -1))
+        {
+            return true;
+        }
+
+    return false;
+}
+
+char Position::GetAggressor(const int square, const int colour)
+{
+    int parity = (1 - colour)/2;
+
+    for (int i = 0; i < 16; ++i)
+    {
+        Piece*& p = pieces[i + 16*parity];
+
+        if (p && p->position == square)
+        {
+            return p->name;
+        }
+    }
+
+    return '\0';
 }
 
 int Position::GetColour(int square)
@@ -389,26 +473,6 @@ int Position::GetColour(int square)
     return occupancy[square] <= 16 ? 1 : -1; 
 }
 
-// Position::Position(const Position* pos, int id, int destination, char prom) : 
-// turn(pos->turn),
-// passant(-1)
-// {
-//     for (int i = 0; i < 64; ++i)
-//     {
-//         occupancy[i] = pos->occupancy[i];
-//     }
-
-//     kingsidecastling[0] = pos->kingsidecastling[0];
-//     kingsidecastling[1] = pos->kingsidecastling[1];
-//     queensidecastling[0] = pos->queensidecastling[0];
-//     queensidecastling[1] = pos->queensidecastling[1];
-
-//     int captured = occupancy[destination];
-
-//     occupancy[destination] = id;
-//     occupancy[pos->piece_occupancy[id - 1]] = 0;
-// }
-
 Position::Position(const Position* pos) :
 turn(pos->turn),
 passant(pos->passant)
@@ -417,9 +481,17 @@ passant(pos->passant)
     {
         occupancy[i] = pos->occupancy[i];
 
-        if (i < 32 && pos->pieces[i])
-        {
-            pieces[i] = pos->pieces[i]->Copy();
+        if (i < 32)
+        {   
+            if (pos->pieces[i])
+            {
+                pieces[i] = pos->pieces[i]->Copy();
+            }
+
+            else
+            {
+                pieces[i] = NULL;
+            }
         }
     }
 
@@ -463,5 +535,16 @@ pieces{NULL}
 
         pieces[8 + i] = new Pawn(i + 9, 8*i + 1);
         pieces[i + 24] = new Pawn(i + 25, 8*i + 6);
+    }
+}
+
+Position::~Position()
+{
+    for (int i = 0; i < 32; ++i)
+    {
+        if (&pieces[i])
+        {
+            delete pieces[i];
+        }
     }
 }

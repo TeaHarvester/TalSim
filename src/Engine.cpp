@@ -54,14 +54,22 @@ void Engine::BuildTree(const int depth, Tree*& t)
     t->position->GetMoves();
     int parity = (1 - t->position->turn)/2;
 
-    for (int i = 16*parity; i < 16*(1 - parity); ++i)
+    for (int i = 16*parity; i < 16*(parity + 1); ++i)
     {
-        Piece*& p = t->position->pieces[parity];
+        Piece*& p = t->position->pieces[i];
+
+        if (!p)
+        {
+            continue;
+        }
+
         int n_moves = p->moves.size();
 
         for (int j = 0; j < n_moves; ++j)
         {
+            int move = p->moves[j];
             Position* new_pos = new Position(t->position);
+            new_pos->Move(p->id, move);
             t->Branch(new_pos);
         }
     }

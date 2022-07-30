@@ -21,10 +21,13 @@ struct Position
     void GetMoves();
     void GetMoves(const int id);
     void TrimMoves();
+    bool Check(int colour);
     int GetColour(const int square);
     int Move(const int id, const int destination, const char prom = 'q');
+    char GetAggressor(const int square, const int colour);
     Position();
     Position(const Position* pos);
+    ~Position();
     // Position(const Position* pos, int id, int destination, char prom = 'q');
 };
 
