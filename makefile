@@ -11,7 +11,7 @@ TalSim.o: src/Talsim.cpp src/Board.cpp src/Piece.cpp src/Helpers.cpp
 Board.o: src/Board.cpp src/Position.cpp src/Engine.cpp src/Piece.cpp src/Helpers.cpp
 	$(CC) $(CXXFLAGS) -c src/Board.cpp
 
-Position.o: src/Position.cpp
+Position.o: src/Position.cpp src/Piece.cpp src/Helpers.cpp
 	$(CC) $(CXXFLAGS) -c src/Position.cpp
 
 Engine.o: src/Engine.cpp src/Position.cpp src/Tree.cpp

@@ -8,16 +8,16 @@ void Engine::Evaluate(Position*& pos)
     {   
         for (int j = 0; j < 2; ++j)
         {
-            if (pos->piece_occupancy[i + 16*j] > -1)
+            if (pos->pieces[i + 16*j])
             {
                 evaluation += (1 - 2*j)*value[i];
             }
 
-            if (pos->piece_occupancy[i + 16*j + 8] > -1)
+            if (pos->pieces[i + 16*j + 8])
             {
-                switch (pos->promotions[i + 8*j])
+                switch (pos->pieces[i + 16*j + 8]->name)
                 {
-                case '\0':
+                case 'p':
                     evaluation += (1 - 2*j);
                     break;
 
@@ -51,16 +51,17 @@ void Engine::Evaluate(Position*& pos)
 
 void Engine::BuildTree(const int depth, Tree*& t)
 {
-    board.GetMoves(t->position);
+    t->position->GetMoves();
+    int parity = (1 - t->position->turn)/2;
 
-    for (int i = 0; i < 16; ++i)
+    for (int i = 16*parity; i < 16*(1 - parity); ++i)
     {
-        Piece*& p = board.pieces[i + 8*(1 - t->position->turn)];
+        Piece*& p = t->position->pieces[parity];
         int n_moves = p->moves.size();
 
         for (int j = 0; j < n_moves; ++j)
         {
-            Position* new_pos = board.Move(p->id, p->moves[j], t->position);
+            Position* new_pos = new Position(t->position);
             t->Branch(new_pos);
         }
     }

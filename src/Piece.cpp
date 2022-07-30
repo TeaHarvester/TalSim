@@ -21,8 +21,8 @@ Piece::Piece()
 
 Piece::Piece(int number, int pos) :
 id(number),
-colour(id <= 16? 1 : -1),
-position(pos)
+position(pos),
+moves()
 {
     vectors = std::vector<std::vector<int>>(1);
     vectors[0] = std::vector<int>{0, 0};
@@ -32,6 +32,11 @@ Pawn::Pawn(int number, int pos) :
 Piece(number, pos)
 {
     name = 'p';
+}
+
+Piece* Pawn::Copy()
+{
+    return new Pawn(*this);
 }
 
 Knight::Knight(int number, int pos) : 
@@ -50,6 +55,11 @@ Piece(number, pos)
     hops[7] = std::vector<int>{-1, -2};
 }
 
+Piece* Knight::Copy()
+{
+    return new Knight(*this);
+}
+
 Bishop::Bishop(int number, int pos) : 
 Piece(number, pos)
 {
@@ -58,6 +68,11 @@ Piece(number, pos)
     vectors = std::vector<std::vector<int>>(2);
     vectors[0] = std::vector<int>{1, 1};
     vectors[1] = std::vector<int>{1, -1};
+}
+
+Piece* Bishop::Copy()
+{
+    return new Bishop(*this);
 }
 
 Rook::Rook(int number, int pos) : 
@@ -70,6 +85,11 @@ Piece(number, pos)
     vectors[1] = std::vector<int>{0, 1};
 }
 
+Piece* Rook::Copy()
+{
+    return new Rook(*this);
+}
+
 Queen::Queen(int number, int pos) : 
 Piece(number, pos)
 {
@@ -80,6 +100,11 @@ Piece(number, pos)
     vectors[1] = std::vector<int>{0, 1};
     vectors[2] = std::vector<int>{1, 1};
     vectors[3] = std::vector<int>{-1, 1};
+}
+
+Piece* Queen::Copy()
+{
+    return new Queen(*this);
 }
 
 King::King(int number, int pos) : 
@@ -98,3 +123,7 @@ Piece(number, pos)
     hops[7] = std::vector<int>{-1, -1};
 }
 
+Piece* King::Copy()
+{
+    return new King(*this);
+}
