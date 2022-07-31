@@ -1,6 +1,11 @@
 #include <chrono>
 #include "Engine.h"
 
+void Engine::Transpose()
+{
+
+}
+
 void Engine::Evaluate(Position*& pos)
 {
     float evaluation = 0;
@@ -58,14 +63,33 @@ void Engine::BuildTree(const int depth, Tree*& t)
     {
         Piece*& p = board.pieces[i + 8*(1 - t->position->turn)];
         int n_moves = p->moves.size();
+
         t->branches.resize(t->branches.size() + n_moves);
+        t->alive.resize(t->branches.size() + n_moves);
+
         auto branch = t->branches.end() - n_moves;
+        auto alive = t->alive.end() - n_moves;
 
         for (int j = 0; j < n_moves; ++j)
         {
             Position* new_pos = board.Move(p->id, p->moves[j], t->position);
-            *branch = new Tree(new_pos, t->layer + 1);
-            t->n_branch += 1;
+
+            if (transpose.find(new_pos) == transpose.end())
+            {
+                *branch = new Tree(new_pos, t->layer + 1);
+                t->n_branch += 1;
+                transpose[new_pos] = *branch;
+                *alive = true;
+            }
+
+            else
+            {
+                *branch = transpose[new_pos];
+                *alive = false;
+            }
+
+            ++branch;
+            ++alive;
         }
     }
 
@@ -75,7 +99,10 @@ void Engine::BuildTree(const int depth, Tree*& t)
 
         for (int i = 0; i < n_branch; ++i)
         {
-            BuildTree(depth, t->branches[i]);
+            if (t->alive[i])
+            {
+                BuildTree(depth, t->branches[i]);
+            }
         }
     }
 }

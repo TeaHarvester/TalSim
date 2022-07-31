@@ -1,15 +1,15 @@
 #include "Position.h"
 #include "Position.h"
 
-int Position::GetColour(int square)
-{
-    if (!occupancy[square])
-    {
-        return 0;
-    }
+// int Position::GetColour(int square)
+// {
+//     if (!occupancy[square])
+//     {
+//         return 0;
+//     }
 
-    return occupancy[square] <= 16 ? 1 : -1; 
-}
+//     return occupancy[square] <= 16 ? 1 : -1; 
+// }
 
 Position::Position() :
 turn(1),

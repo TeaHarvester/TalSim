@@ -3,29 +3,113 @@
 #include "Piece.h"
 #include "Helpers.h"
 
-bool Board::Check(Position*& pos)
+bool Board::Check(Position*& pos, const int colour)
 {
-    int king_id = 5 + (8*(1 - pos->turn));
+    int parity = (1 - colour)/2;
+    Piece*& king = pieces[4 + 16*parity];
+    int pos_y = king->position % 8;
+    int pos_x = (king->position - pos_y)/8;
 
-    for (int i = 0; i < 16; ++i)
+    int vectors[4][2] = {{1, 0}, {0, 1}, {1, 1}, {1, -1}};
+    int hops[4][2] = {{-2, 1}, {-1, 2}, {1, 2}, {2, 1}};
+
+    for (int i = 0; i < 4; ++i)
     {
-        Piece*& p = pieces[i + 8*(1 + pos->turn)];
-        GetMoves(p, pos);
-        int n_moves = p->moves.size();
-
-        for (int j = 0; j < n_moves; ++j)
+        for (int direction = -1; direction < 2; direction += 2)
         {
-            if (pos->occupancy[p->moves[j]] == king_id)
+            int x_hop = direction*hops[i][1];
+            int y_hop = direction*hops[i][0];
+
+            if (pos_x + x_hop <= 7 && 
+                pos_y + y_hop <= 7 && 
+                pos_x + x_hop >= 0 && 
+                pos_y + y_hop >= 0)
             {
-                return true;
+                int leap = 8*(pos_x + x_hop) + pos_y + y_hop;
+
+                if (colour*GetColour(pos, leap) == -1 && GetAggressor(pos, leap, -1*colour) == 'n')
+                {
+                    return true;
+                }
+            }
+
+            int x = pos_x;
+            int y = pos_y;
+            int x_movement = direction*vectors[i][1];
+            int y_movement = direction*vectors[i][0];
+
+            while (x + x_movement <= 7 && 
+                    y + y_movement <= 7 && 
+                    x + x_movement >= 0 && 
+                    y + y_movement >= 0)
+            {
+                x += x_movement;
+                y += y_movement;
+
+                if (GetColour(pos, 8*x + y)*colour == 1)
+                {
+                    break;
+                }
+
+                else if (GetColour(pos, 8*x + y)*colour == -1)
+                {
+                    char aggressor = GetAggressor(pos, 8*x + y, -1*colour);
+
+                    if (aggressor == 'q' ||
+                        ((aggressor == 'r') && (!vectors[i][0] || !vectors[i][1])) ||
+                        ((aggressor == 'b') && (vectors[i][0] && vectors[i][1])))
+                    {
+                        return true;
+                    }
+                }
             }
         }
     }
 
+    Piece*& opposing_king = pieces[4 + 16*(1 - parity)];
+    int op_y = opposing_king->position % 8;
+    int op_x = (opposing_king->position - op_y)/8;
+
+    int sep_x = pos_x - op_x;
+    int sep_y = pos_y - op_y;
+
+    if ((sep_x == 1 || sep_x == -1) &&
+        (sep_y == 1 || sep_y == -1))
+        {
+            return true;
+        }
+
     return false;
 }
 
-void Board::Move(std::string move, char prom)
+int Board::GetColour(Position*& pos, const int square)
+{
+    if (!pos->occupancy[square])
+    {
+        return 0;
+    }
+
+    return pos->occupancy[square] <= 16 ? 1 : -1; 
+}
+
+char Board::GetAggressor(Position*& pos,  const int square, const int colour)
+{
+    int parity = (1 - colour)/2;
+
+    for (int i = 0; i < 16; ++i)
+    {
+        Piece*& p = pieces[i + 16*parity];
+
+        if (p && p->position == square)
+        {
+            return p->name;
+        }
+    }
+
+    return '\0';
+}
+
+void Board::Move(const std::string move, const char prom)
 {
     GetMoves(current);
 
@@ -125,7 +209,7 @@ void Board::Move(std::string move, char prom)
     Move(id, destination, prom);
 }
 
-void Board::Move(int id, int destination, char prom)
+void Board::Move(const int id, const int destination, const char prom)
 {
     GetMoves(current);
 
@@ -138,7 +222,7 @@ void Board::Move(int id, int destination, char prom)
     }
 }
 
-Position* Board::Move(int id, int destination, Position*& pos, char prom)
+Position* Board::Move(const int id, const int destination, Position*& pos, const char prom)
 {
     Piece*& p = pieces[id - 1];
 
@@ -155,6 +239,7 @@ Position* Board::Move(int id, int destination, Position*& pos, char prom)
         new_pos->kingsidecastling[(1 - pos->turn)/2] = false;
         new_pos->queensidecastling[(1 - pos->turn)/2] = false;
         new_pos->turn = -1*pos->turn;
+        new_pos->movelist.push_back({id, destination});
 
         return new_pos;
     }
@@ -170,6 +255,7 @@ Position* Board::Move(int id, int destination, Position*& pos, char prom)
         new_pos->kingsidecastling[(1 - pos->turn)/2] = false;
         new_pos->queensidecastling[(1 - pos->turn)/2] = false;
         new_pos->turn = -1*pos->turn;
+        new_pos->movelist.push_back({id, destination});
 
         return new_pos;
     }
@@ -211,6 +297,7 @@ Position* Board::Move(int id, int destination, Position*& pos, char prom)
     }
 
     new_pos->turn = -1*pos->turn;
+    new_pos->movelist.push_back({id, destination});
 
     return new_pos;
 }
@@ -279,7 +366,7 @@ void Board::TrimMoves(Position*& pos)
                 {
                     *new_pos = Position(pos, p->id, init_pos + 8*i);
 
-                    if (Check(new_pos))
+                    if (Check(new_pos, pos->turn))
                     {
                         iter = p->moves.erase(iter);
                         goto start;
@@ -293,7 +380,7 @@ void Board::TrimMoves(Position*& pos)
                 {
                     *new_pos = Position(pos, p->id, init_pos - 8*i);
 
-                    if (Check(new_pos))
+                    if (Check(new_pos, pos->turn))
                     {
                         iter = p->moves.erase(iter);
                         goto start;
@@ -305,7 +392,7 @@ void Board::TrimMoves(Position*& pos)
             {
                 *new_pos = Position(pos, p->id, destination);
 
-                if (Check(new_pos))
+                if (Check(new_pos, pos->turn))
                 {
                     iter = p->moves.erase(iter);
                     continue;
@@ -365,12 +452,12 @@ void Board::GetMoves(Piece*& p, Position*& pos)
                     x += x_movement;
                     y += y_movement;
 
-                    if (pos->GetColour(8*x + y)*p->colour == 1)
+                    if (GetColour(pos, 8*x + y)*p->colour == 1)
                     {
                         break;
                     }
 
-                    else if (pos->GetColour(8*x + y)*p->colour == -1)
+                    else if (GetColour(pos, 8*x + y)*p->colour == -1)
                     {
                         p->moves.push_back(8*x + y);
                         break;
@@ -407,7 +494,7 @@ void Board::GetMoves(Piece*& p, Position*& pos)
         if (y + p->colour <= 7 &&
             y + p->colour >= 0 &&
             x + 1 <= 7 &&
-            (p->colour*pos->GetColour(8*(x + 1) + y + p->colour) == -1 || 8*(x + 1) + y + p->colour == pos->passant))
+            (p->colour*GetColour(pos, 8*(x + 1) + y + p->colour) == -1 || 8*(x + 1) + y + p->colour == pos->passant))
         {
             p->moves.push_back(8*(x + 1) + y + p->colour);
         }
@@ -415,7 +502,7 @@ void Board::GetMoves(Piece*& p, Position*& pos)
         if (y + p->colour <= 7 &&
             y + p->colour >= 0 &&
             x - 1 >= 0 &&
-            (p->colour*pos->GetColour(8*(x - 1) + y + p->colour) == -1 || 8*(x - 1) + y + p->colour == pos->passant))
+            (p->colour*GetColour(pos, 8*(x - 1) + y + p->colour) == -1 || 8*(x - 1) + y + p->colour == pos->passant))
         {
             p->moves.push_back(8*(x - 1) + y + p->colour);
         }
@@ -451,7 +538,7 @@ void Board::GetMoves(Piece*& p, Position*& pos)
                 x + p->hops[i][1] >= 0 &&
                 y + p->hops[i][0] <= 7 &&
                 y + p->hops[i][0] >= 0 &&
-                p->colour*pos->GetColour(8*(x + p->hops[i][1]) + y + p->hops[i][0]) <= 0)
+                p->colour*GetColour(pos, 8*(x + p->hops[i][1]) + y + p->hops[i][0]) <= 0)
             {
                 p->moves.push_back(8*(x + p->hops[i][1]) + y + p->hops[i][0]);
             }
@@ -484,7 +571,7 @@ void Board::PrintPosition(Position*& pos)
     }
 }
 
-void Board::DisplayMoves(Position*& pos)
+void Board::DisplayMoves(const Position*& pos)
 {
     GetMoves(current);
 

@@ -29,16 +29,17 @@ std::vector<Tree*>* Tree::GetBranches(const int depth, std::vector<Tree*>* branc
     return branch;
 }
 
-void Tree::Branch(Position*& pos)
-{
-    branches.push_back(new Tree(pos, layer + 1));
-    ++n_branch;
-}
+// void Tree::Branch(Position*& pos)
+// {
+//     branches.push_back(new Tree(pos, layer + 1));
+//     ++n_branch;
+// }
 
 Tree::Tree(Position*& pos, int l) : 
 layer(l),
-n_branch(0),
-position(pos)
+n_branch(),
+position(pos),
+alive()
 {
     branches = std::vector<Tree*>();
 }
