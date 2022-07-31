@@ -1,5 +1,5 @@
 CC = g++
-CXXFLAGS = -Wall -g -Iinclude
+CXXFLAGS = -Wall -g -o2 -Iinclude
 OBJS = TalSim.o Board.o Position.o Engine.o Piece.o Tree.o Helpers.o
 
 TalSim: $(OBJS)

@@ -52,31 +52,20 @@ void Engine::Evaluate(Position*& pos)
 
 void Engine::BuildTree(const int depth, Tree*& t)
 {
-    auto start1 = std::chrono::steady_clock::now();
-
     board.GetMoves(t->position);
-
-    auto stop1 = std::chrono::steady_clock::now();
-    
-    auto dur1 = stop1 - start1;
-    std::cout << std::endl << "time: " << std::chrono::duration <double> (dur1).count() << std::endl;
 
     for (int i = 0; i < 16; ++i)
     {
         Piece*& p = board.pieces[i + 8*(1 - t->position->turn)];
         int n_moves = p->moves.size();
+        t->branches.resize(t->branches.size() + n_moves);
+        auto branch = t->branches.end() - n_moves;
 
         for (int j = 0; j < n_moves; ++j)
         {
-            auto start2 = std::chrono::steady_clock::now();
-
             Position* new_pos = board.Move(p->id, p->moves[j], t->position);
-            t->Branch(new_pos);
-
-            auto stop2 = std::chrono::steady_clock::now();
-
-            auto dur2 = stop2 - start2;
-            std::cout << std::endl << "time: " << std::chrono::duration <double> (dur2).count() << std::endl;
+            *branch = new Tree(new_pos, t->layer + 1);
+            t->n_branch += 1;
         }
     }
 
