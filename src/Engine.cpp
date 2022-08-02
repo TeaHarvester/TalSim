@@ -55,29 +55,30 @@ void Engine::Evaluate(Position*& pos)
     std::cout << std::endl << "evaluation: " << evaluation << std::endl;
 }
 
-void Engine::BuildTree(const int depth, Tree*& t)
+void Engine::BuildTree(const int depth, Tree& t)
 {
-    board.GetMoves(t->position);
+    Position* ptr = &t.position;
+    board.GetMoves(ptr);
 
     for (int i = 0; i < 16; ++i)
     {
-        Piece*& p = board.pieces[i + 8*(1 - t->position->turn)];
+        Piece*& p = board.pieces[i + 8*(1 - ptr->turn)];
         int n_moves = p->moves.size();
 
-        t->branches.resize(t->branches.size() + n_moves);
-        t->alive.resize(t->branches.size() + n_moves);
+        t.branches.resize(t.branches.size() + n_moves);
+        t.alive.resize(t.branches.size() + n_moves);
 
-        auto branch = t->branches.end() - n_moves;
-        auto alive = t->alive.end() - n_moves;
+        auto branch = t.branches.end() - n_moves;
+        auto alive = t.alive.end() - n_moves;
 
         for (int j = 0; j < n_moves; ++j)
         {
-            Position* new_pos = board.Move(p->id, p->moves[j], t->position);
+            Position* new_pos = board.Move(p->id, p->moves[j], ptr);
 
             if (transpose.find(new_pos) == transpose.end())
             {
-                *branch = new Tree(new_pos, t->layer + 1);
-                t->n_branch += 1;
+                *branch = new Tree(*new_pos, t.layer + 1);
+                t.n_branch += 1;
                 transpose[new_pos] = *branch;
                 *alive = true;
             }
@@ -93,22 +94,21 @@ void Engine::BuildTree(const int depth, Tree*& t)
         }
     }
 
-    if (t->layer < depth)
+    if (t.layer < depth)
     {
-        int n_branch = t->branches.size();
+        int n_branch = t.branches.size();
 
         for (int i = 0; i < n_branch; ++i)
         {
-            if (t->alive[i])
+            if (t.alive[i])
             {
-                BuildTree(depth, t->branches[i]);
+                BuildTree(depth, *(t.branches[i]));
             }
         }
     }
 }
 
 Engine::Engine(Board& b) : 
-tree(NULL),
 board(b)
 {
     value[0] = 5;
@@ -123,5 +123,5 @@ board(b)
 
 Engine::~Engine()
 {
-    delete tree;
+    // delete tree;
 }

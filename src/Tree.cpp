@@ -3,12 +3,11 @@
 std::vector<Tree*> Tree::GetBranches(const int depth)
 {
     std::vector<Tree*> output;
-    std::vector<Tree*>* outptr = &output;
-    outptr = GetBranches(depth, outptr);
+    output = GetBranches(depth, output);
     return output;
 }
 
-std::vector<Tree*>* Tree::GetBranches(const int depth, std::vector<Tree*>* branch)
+std::vector<Tree*>& Tree::GetBranches(const int depth, std::vector<Tree*>& branch)
 {
     if (layer < depth)
     {
@@ -22,7 +21,7 @@ std::vector<Tree*>* Tree::GetBranches(const int depth, std::vector<Tree*>* branc
     {
         for (int i = 0; i < n_branch; ++i)
         {
-            branch->push_back(branches[i]);
+            branch.push_back(branches[i]);
         }
     }
 
@@ -35,21 +34,28 @@ std::vector<Tree*>* Tree::GetBranches(const int depth, std::vector<Tree*>* branc
 //     ++n_branch;
 // }
 
-Tree::Tree(Position*& pos, int l) : 
+Tree::Tree(Position& pos, int l) : 
 layer(l),
 n_branch(),
 position(pos),
-alive()
-{
-    branches = std::vector<Tree*>();
-}
+branches(),
+alive(true)
+{}
+
+Tree::Tree() : 
+layer(),
+n_branch(),
+position(),
+branches(),
+alive(true)
+{}
 
 Tree::~Tree()
 {
-    if (position)
-    {
-        delete position;
-    }
+    // if (position)
+    // {
+    //     delete position;
+    // }
 
     int n_branch = branches.size();
 
