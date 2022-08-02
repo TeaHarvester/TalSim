@@ -8,7 +8,7 @@
 
 struct Tree
 {
-    const int layer;
+    int layer;
     int n_branch;
     Position* position;
     std::vector<Tree*> branches;

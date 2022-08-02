@@ -109,3 +109,27 @@ passant(-1)
         moved[index] = true;
     }
 }
+
+bool Position::operator==(const Position& pos) const
+{
+    for (int i = 0; i < 16; ++i)
+    {
+        if (piece_occupancy[i] != pos.piece_occupancy[i] ||
+            piece_occupancy[i + 16] != pos.piece_occupancy[i + 16] ||
+            promotions[i] != pos.promotions[i])
+        {
+            return false;
+        }
+    }
+
+    if (kingsidecastling[0] != pos.kingsidecastling[0] ||
+    kingsidecastling[1] != pos.kingsidecastling[1] ||
+    queensidecastling[0] != pos.queensidecastling[0] ||
+    queensidecastling[1] != pos.queensidecastling[1] ||
+    passant != pos.passant || turn != pos.turn)
+    {
+        return false;
+    }
+
+    return true;
+}

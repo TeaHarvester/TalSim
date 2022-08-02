@@ -6,6 +6,7 @@
 #include "Position.h"
 #include "Board.h"
 #include "Tree.h"
+#include "Helpers.h"
 
 class Engine
 {
@@ -18,7 +19,7 @@ class Engine
 
     private:
     float value[8];
-    std::unordered_map<Position*, Tree*> transpose;
+    std::unordered_map<Position, Tree*, HashPolicy> transpose;
     Board& board;
 
     void Evaluate(Position*& pos);
