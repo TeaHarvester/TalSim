@@ -299,41 +299,46 @@ Position Board::Move(const int id, const int destination, Position& pos, const c
 
 void Board::Arrange(Position& pos)
 {
-    for (int i = 0; i < 32; ++i)
+    for (auto p = pieces.begin(); p < pieces.end(); ++p)
     {
-        Piece& p = pieces[i];
-        int& position =  pos.piece_occupancy[i];
-        const int parity = (1 - p.colour)/2;
+        const int& position =  pos.piece_occupancy[p->id - 1];
 
         if (position > -1)
         {
-            p.position = position;
+            p->position = position;
         }
+    }
 
-        if (((i >= 8 && i < 16) || (i >= 24 && i < 32)) && 
-            pos.promotions[i + 16*parity] != p.name)
+    for (int parity = 0; parity < 2; ++parity)
+    {
+        for (int i = 0; i < 8; ++i)
         {
-            switch (pos.promotions[p.colour == 1 ? i - 8 : i -16])
+            Piece& p = pieces[i + 16*parity + 8];
+
+            if (p.name != pos.promotions[i + 8*parity])
             {
-            case 'q':
-                p = Queen(i + 1, position);
-                break;
+                switch (pos.promotions[i + 8*parity])
+                {
+                case 'q':
+                    p = Queen(i + 1, p.position);
+                    break;
 
-            case 'n':
-                p = Knight(i + 1, position);
-                break;
+                case 'n':
+                    p = Knight(i + 1, p.position);
+                    break;
 
-            case 'b':
-                p = Bishop(i + 1, position);
-                break;
+                case 'b':
+                    p = Bishop(i + 1, p.position);
+                    break;
 
-            case 'r':
-                p = Rook(i + 1, position);
-                break;
-            
-            default:
-                p = Pawn(i + 1, position);
-                break;
+                case 'r':
+                    p = Rook(i + 1, p.position);
+                    break;
+                
+                default:
+                    p = Pawn(i + 1, p.position);
+                    break;
+                }
             }
         }
     }

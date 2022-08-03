@@ -6,8 +6,7 @@ turn(1),
 occupancy{0},
 passant(-1),
 kingsidecastling{true, true},
-queensidecastling{true, true},
-promotions{'p'}
+queensidecastling{true, true}
 {
     for (int i = 0; i < 8; ++i)
     {
@@ -20,6 +19,9 @@ promotions{'p'}
         piece_occupancy[i + 8] = 8*i + 1;
         piece_occupancy[i + 16] = 8*i + 7;
         piece_occupancy[i + 24] = 8*i + 6;
+
+        promotions[i] = 'p';
+        promotions[i + 8] = 'p';
     }
 }
 
