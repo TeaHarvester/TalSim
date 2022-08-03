@@ -8,7 +8,8 @@ int main()
 {
     Board b;
     Engine TalSim(b);
-    Tree tree(*b.current);
+
+    Tree tree(b.current);
     // Tree* t = &tree;
 
     auto start = std::chrono::steady_clock::now();  
@@ -23,7 +24,6 @@ int main()
     std::vector<Tree*> branches = tree.GetBranches(4);
     std::cout << std::endl << "branches: " << branches.size() << std::endl;;
     srand(time(NULL));
-    Position* ptr = &branches[10000]->position;
-    b.PrintPosition(ptr);
+    b.PrintPosition(branches[10000]->position);
     return 0;
 }

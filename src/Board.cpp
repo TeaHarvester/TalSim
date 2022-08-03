@@ -3,12 +3,12 @@
 #include "Piece.h"
 #include "Helpers.h"
 
-bool Board::Check(Position*& pos, const int colour)
+bool Board::Check(Position& pos, const int colour)
 {
     int parity = (1 - colour)/2;
-    Piece*& king = pieces[4 + 16*parity];
-    int pos_y = king->position % 8;
-    int pos_x = (king->position - pos_y)/8;
+    int king_position = pos.piece_occupancy[4 + 16*parity];
+    int pos_y = king_position % 8;
+    int pos_x = (king_position - pos_y)/8;
 
     int vectors[4][2] = {{1, 0}, {0, 1}, {1, 1}, {1, -1}};
     int hops[4][2] = {{-2, 1}, {-1, 2}, {1, 2}, {2, 1}};
@@ -66,9 +66,9 @@ bool Board::Check(Position*& pos, const int colour)
         }
     }
 
-    Piece*& opposing_king = pieces[4 + 16*(1 - parity)];
-    int op_y = opposing_king->position % 8;
-    int op_x = (opposing_king->position - op_y)/8;
+    int opposing_king_position = pos.piece_occupancy[4 + 16*(1 - parity)];
+    int op_y = opposing_king_position % 8;
+    int op_x = (opposing_king_position - op_y)/8;
 
     int sep_x = pos_x - op_x;
     int sep_y = pos_y - op_y;
@@ -82,27 +82,27 @@ bool Board::Check(Position*& pos, const int colour)
     return false;
 }
 
-int Board::GetColour(Position*& pos, const int square)
+int Board::GetColour(Position& pos, const int square)
 {
-    if (!pos->occupancy[square])
+    if (!pos.occupancy[square])
     {
         return 0;
     }
 
-    return pos->occupancy[square] <= 16 ? 1 : -1; 
+    return pos.occupancy[square] <= 16 ? 1 : -1; 
 }
 
-char Board::GetAggressor(Position*& pos,  const int square, const int colour)
+char Board::GetAggressor(Position& pos,  const int square, const int colour)
 {
     int parity = (1 - colour)/2;
 
     for (int i = 0; i < 16; ++i)
     {
-        Piece*& p = pieces[i + 16*parity];
+        Piece& p = pieces[i + 16*parity];
 
-        if (p && p->position == square)
+        if (pos.piece_occupancy[i] >= 0 && p.position == square)
         {
-            return p->name;
+            return p.name;
         }
     }
 
@@ -120,13 +120,13 @@ void Board::Move(const std::string move, const char prom)
 
     if (move == "00")
     {
-        Move(5 + 8*(1 - current->turn), -1);
+        Move(5 + 8*(1 - current.turn), -1);
         return;
     }
 
     if (move == "000")
     {
-        Move(5 + 8*(1 - current->turn), -2);
+        Move(5 + 8*(1 - current.turn), -2);
         return;
     }
 
@@ -154,18 +154,18 @@ void Board::Move(const std::string move, const char prom)
 
     for (int i = 0; i < 16; ++i)
     {
-        int index = i +  8*(1 - current->turn);
+        int index = i +  8*(1 - current.turn);
 
-        if (current->piece_occupancy[index] > -1 && pieces[index]->name == name)
+        if (current.piece_occupancy[index] >= 0 && pieces[index].name == name)
         {
-            std::vector<int>& moves = pieces[index]->moves;
+            std::vector<int>& moves = pieces[index].moves;
             int n_moves = moves.size();
 
             for (int i = 0; i < n_moves; ++i)
             {
                 if (moves[i] == destination)
                 {
-                    candidates.push_back(pieces[index]);
+                    candidates.push_back(&pieces[index]);
                 }
             }
         }
@@ -212,161 +212,156 @@ void Board::Move(const std::string move, const char prom)
 void Board::Move(const int id, const int destination, const char prom)
 {
     GetMoves(current);
-
-    Position* new_current = Move(id, destination, current, prom);
-
-    if (new_current)
-    {
-        delete current;
-        current = new_current;
-    }
+    current = Move(id, destination, current, prom);
 }
 
-Position* Board::Move(const int id, const int destination, Position*& pos, const char prom)
+Position Board::Move(const int id, const int destination, Position& pos, const char prom)
 {
-    Piece*& p = pieces[id - 1];
+    Piece& p = pieces[id - 1];
+    Position new_pos;
+    const int parity = 1 - pos.turn/2;
 
-    int init_pos = p->position;
+    int init_pos = p.position;
 
-    if (pos->kingsidecastling && destination == -1)
+    if (pos.kingsidecastling && destination == -1)
     {
-        Position* new_pos = new Position(pos, id, init_pos + 16);
+        new_pos = Position(pos, id, init_pos + 16);
 
-        int rook_id = 8 + 8*(1 - pos->turn);
+        int rook_id = 8 + 16*parity;
 
-        *new_pos = Position(new_pos, rook_id, pieces[rook_id - 1]->position - 16);
+        new_pos = Position(new_pos, rook_id, pieces[rook_id - 1].position - 16);
 
-        new_pos->kingsidecastling[(1 - pos->turn)/2] = false;
-        new_pos->queensidecastling[(1 - pos->turn)/2] = false;
-        new_pos->turn = -1*pos->turn;
-        new_pos->movelist.push_back({id, destination});
+        new_pos.kingsidecastling[parity] = false;
+        new_pos.queensidecastling[parity] = false;
+        new_pos.turn = -1*pos.turn;
+        new_pos.movelist.push_back({id, destination});
 
         return new_pos;
     }
 
-    else if (pos->queensidecastling && destination == -2)
+    else if (pos.queensidecastling && destination == -2)
     {
-        Position* new_pos = new Position(pos, id, init_pos - 16);
+        new_pos = Position(pos, id, init_pos - 16);
 
-        int rook_id = 1 + 8*(1 - pos->turn);
+        int rook_id = 1 + 16*parity;
 
-        *new_pos = Position(new_pos, rook_id, pieces[rook_id - 1]->position + 24);
+        new_pos = Position(new_pos, rook_id, pieces[rook_id - 1].position + 24);
 
-        new_pos->kingsidecastling[(1 - pos->turn)/2] = false;
-        new_pos->queensidecastling[(1 - pos->turn)/2] = false;
-        new_pos->turn = -1*pos->turn;
-        new_pos->movelist.push_back({id, destination});
+        new_pos.kingsidecastling[parity] = false;
+        new_pos.queensidecastling[parity] = false;
+        new_pos.turn = -1*pos.turn;
+        new_pos.movelist.push_back({id, destination});
 
         return new_pos;
     }
 
-    Position* new_pos = new Position(pos, id, destination, prom);
+    new_pos = Position(pos, id, destination, prom);
 
     int captured = 0;
 
-    if (p->name == 'k')
+    if (p.name == 'k')
     {
-        new_pos->kingsidecastling[(1 - pos->turn)/2] = false;
-        new_pos->queensidecastling[(1 - pos->turn)/2] = false;
+        new_pos.kingsidecastling[parity] = false;
+        new_pos.queensidecastling[parity] = false;
     }
 
     else if (id == 1 || id == 17)
     {
-        new_pos->queensidecastling[(1 - pos->turn)/2] = false;
+        new_pos.queensidecastling[parity] = false;
     }
 
     else if (id == 8 || id == 24)
     {
-        new_pos->kingsidecastling[(1 - pos->turn)/2] = false;
+        new_pos.kingsidecastling[parity] = false;
     }
 
-    else if (p->name == 'p')
+    else if (p.name == 'p')
     {
-        if (pos->turn*(destination - init_pos) == 2)
+        if (pos.turn*(destination - init_pos) == 2)
         {
-            new_pos->passant = destination - pos->turn;
+            new_pos.passant = destination - pos.turn;
         }
 
-        else if ((destination - init_pos == -7*pos->turn || destination - init_pos == 9*pos->turn) && 
-                    destination == pos->passant)
+        else if ((destination - init_pos == -7*pos.turn || destination - init_pos == 9*pos.turn) && 
+                    destination == pos.passant)
         {
-            captured = pos->occupancy[destination - pos->turn];
-            new_pos->occupancy[destination - pos->turn] = 0;
-            new_pos->piece_occupancy[captured - 1] = -1;
+            captured = pos.occupancy[destination - pos.turn];
+            new_pos.occupancy[destination - pos.turn] = 0;
+            new_pos.piece_occupancy[captured - 1] = -1;
         }
     }
 
-    new_pos->turn = -1*pos->turn;
-    new_pos->movelist.push_back({id, destination});
+    new_pos.turn = -1*pos.turn;
+    new_pos.movelist.push_back({id, destination});
 
     return new_pos;
 }
 
-void Board::Arrange(Position*& pos)
+void Board::Arrange(Position& pos)
 {
     for (int i = 0; i < 32; ++i)
     {
-        Piece*& p = pieces[i];
-        int& position =  pos->piece_occupancy[i];
+        Piece& p = pieces[i];
+        int& position =  pos.piece_occupancy[i];
+        const int parity = (1 - p.colour)/2;
 
         if (position > -1)
         {
-            p->position = position;
+            p.position = position;
         }
 
         if (((i >= 8 && i < 16) || (i >= 24 && i < 32)) && 
-            pos->promotions[p->colour == 1 ? i - 8 : i -16] != p->name)
+            pos.promotions[i + 16*parity] != p.name)
         {
-            switch (pos->promotions[p->colour == 1 ? i - 8 : i -16])
+            switch (pos.promotions[p.colour == 1 ? i - 8 : i -16])
             {
             case 'q':
-                *p = Queen(i + 1, position);
+                p = Queen(i + 1, position);
                 break;
 
             case 'n':
-                *p = Knight(i + 1, position);
+                p = Knight(i + 1, position);
                 break;
 
             case 'b':
-                *p = Bishop(i + 1, position);
+                p = Bishop(i + 1, position);
                 break;
 
             case 'r':
-                *p = Rook(i + 1, position);
+                p = Rook(i + 1, position);
                 break;
             
             default:
-                *p = Pawn(i + 1, position);
+                p = Pawn(i + 1, position);
                 break;
             }
         }
     }
 }
 
-void Board::TrimMoves(Position*& pos)
+void Board::TrimMoves(Position& pos)
 {
-    Position* new_pos = new Position(pos);
+    Position new_pos;
+    const int parity = (1 - pos.turn/2);
 
-    for (int i = 0; i < 16; ++i)
+    for (auto p = pieces.begin() + 16*parity; p < pieces.end() + 16*(parity - 1); ++p)
     {
-        Piece*& p = pieces[i + 8*(1 - pos->turn)];
-
         auto iter = p->moves.begin();
 
-        while (iter != p->moves.end())
+        while (iter < p->moves.end())
         {
             start:
 
             int init_pos = p->position;
             int destination = *iter;
 
-            if (pos->kingsidecastling && destination == -1)
+            if (pos.kingsidecastling && destination == -1)
             {
                 for (int i = 0; i < 3; ++i)
                 {
-                    *new_pos = Position(pos, p->id, init_pos + 8*i);
+                    new_pos = Position(pos, p->id, init_pos + 8*i);
 
-                    if (Check(new_pos, pos->turn))
+                    if (Check(new_pos, pos.turn))
                     {
                         iter = p->moves.erase(iter);
                         goto start;
@@ -374,13 +369,13 @@ void Board::TrimMoves(Position*& pos)
                 }
             }
 
-            else if (pos->queensidecastling && destination == -2)
+            else if (pos.queensidecastling && destination == -2)
             {
                 for (int i = 0; i < 3; ++i)
                 {
-                    *new_pos = Position(pos, p->id, init_pos - 8*i);
+                    new_pos = Position(pos, p->id, init_pos - 8*i);
 
-                    if (Check(new_pos, pos->turn))
+                    if (Check(new_pos, pos.turn))
                     {
                         iter = p->moves.erase(iter);
                         goto start;
@@ -390,9 +385,9 @@ void Board::TrimMoves(Position*& pos)
 
             else
             {
-                *new_pos = Position(pos, p->id, destination);
+                new_pos = Position(pos, p->id, destination);
 
-                if (Check(new_pos, pos->turn))
+                if (Check(new_pos, pos.turn))
                 {
                     iter = p->moves.erase(iter);
                     continue;
@@ -402,36 +397,34 @@ void Board::TrimMoves(Position*& pos)
             ++iter;
         }
     }
-
-    delete new_pos;
 }
 
-void Board::GetMoves(Position*& pos)
+void Board::GetMoves(Position& pos)
 {
     Arrange(pos);
 
-    for (int i = 0; i < 32; ++i)
+    for (auto p = pieces.begin(); p < pieces.end(); ++p)
     {   
-        Piece*& p = pieces[i];
-        GetMoves(p, pos);
+        GetMoves(*p, pos);
     }
 
     TrimMoves(pos);
 }
 
-void Board::GetMoves(Piece*& p, Position*& pos)
+void Board::GetMoves(Piece& p, Position& pos)
 {   
-    p->moves.clear();
+    p.moves.clear();
+    const int parity = (1 - pos.turn)/2;
 
-    if (pos->piece_occupancy[p->id - 1] == -1)
+    if (pos.piece_occupancy[p.id - 1] == -1)
     {
         return;
     }
 
-    int pos_y = p->position % 8;
-    int pos_x = (p->position - pos_y)/8;
+    const int pos_y = p.position % 8;
+    const int pos_x = (p.position - pos_y)/8;
 
-    int n_vectors = p->vectors.size();
+    const int n_vectors = p.vectors.size();
 
     if (n_vectors > 1)
     {
@@ -441,8 +434,8 @@ void Board::GetMoves(Piece*& p, Position*& pos)
             {
                 int x = pos_x;
                 int y = pos_y;
-                int x_movement = direction*p->vectors[i][1];
-                int y_movement = direction*p->vectors[i][0];
+               const int x_movement = direction*p.vectors[i][1];
+               const int y_movement = direction*p.vectors[i][0];
 
                 while (x + x_movement <= 7 && 
                        y + y_movement <= 7 && 
@@ -452,59 +445,59 @@ void Board::GetMoves(Piece*& p, Position*& pos)
                     x += x_movement;
                     y += y_movement;
 
-                    if (GetColour(pos, 8*x + y)*p->colour == 1)
+                    if (GetColour(pos, 8*x + y)*p.colour == 1)
                     {
                         break;
                     }
 
-                    else if (GetColour(pos, 8*x + y)*p->colour == -1)
+                    else if (GetColour(pos, 8*x + y)*p.colour == -1)
                     {
-                        p->moves.push_back(8*x + y);
+                        p.moves.push_back(8*x + y);
                         break;
                     }
 
-                    p->moves.push_back(8*x + y);
+                    p.moves.push_back(8*x + y);
                 }
             }
         }
     }
 
-    else if (p->name == 'p')
+    else if (p.name == 'p')
     {
         int x = pos_x;
         int y = pos_y;
 
-        if (y + 2*p->colour <= 7 &&
-            y + 2*p->colour >= 0 && 
-            pos->occupancy[8*x + y + p->colour] == 0  &&
-            pos->occupancy[8*x + y + 2*p->colour] == 0 &&
-            !pos->moved[p->colour == 1 ? p->id - 9 : p->id -17])
+        if (y + 2*p.colour <= 7 &&
+            y + 2*p.colour >= 0 && 
+            pos.occupancy[8*x + y + p.colour] == 0  &&
+            pos.occupancy[8*x + y + 2*p.colour] == 0 &&
+            p.position == 8*p.id - 71 - 123*parity)
         {
-            p->moves.push_back(8*x + y + p->colour);
-            p->moves.push_back(8*x + y + 2*p->colour);
+            p.moves.push_back(8*x + y + p.colour);
+            p.moves.push_back(8*x + y + 2*p.colour);
         }
 
-        else if (y + p->colour <= 7 &&
-                 y + p->colour >= 0 && 
-                 pos->occupancy[8*x + y + p->colour] == 0)
+        else if (y + p.colour <= 7 &&
+                 y + p.colour >= 0 && 
+                 pos.occupancy[8*x + y + p.colour] == 0)
         {
-            p->moves.push_back(8*x + y + p->colour);
+            p.moves.push_back(8*x + y + p.colour);
         }
 
-        if (y + p->colour <= 7 &&
-            y + p->colour >= 0 &&
+        if (y + p.colour <= 7 &&
+            y + p.colour >= 0 &&
             x + 1 <= 7 &&
-            (p->colour*GetColour(pos, 8*(x + 1) + y + p->colour) == -1 || 8*(x + 1) + y + p->colour == pos->passant))
+            (p.colour*GetColour(pos, 8*(x + 1) + y + p.colour) == -1 || 8*(x + 1) + y + p.colour == pos.passant))
         {
-            p->moves.push_back(8*(x + 1) + y + p->colour);
+            p.moves.push_back(8*(x + 1) + y + p.colour);
         }
 
-        if (y + p->colour <= 7 &&
-            y + p->colour >= 0 &&
+        if (y + p.colour <= 7 &&
+            y + p.colour >= 0 &&
             x - 1 >= 0 &&
-            (p->colour*GetColour(pos, 8*(x - 1) + y + p->colour) == -1 || 8*(x - 1) + y + p->colour == pos->passant))
+            (p.colour*GetColour(pos, 8*(x - 1) + y + p.colour) == -1 || 8*(x - 1) + y + p.colour == pos.passant))
         {
-            p->moves.push_back(8*(x - 1) + y + p->colour);
+            p.moves.push_back(8*(x - 1) + y + p.colour);
         }
     }
 
@@ -513,40 +506,40 @@ void Board::GetMoves(Piece*& p, Position*& pos)
         int x = pos_x;
         int y = pos_y;
 
-        if (p->name == 'k' &&
-            pos->kingsidecastling[(1 - p->colour)/2] &&
-            !pos->occupancy[8*(x + 1) + y] && 
-            !pos->occupancy[8*(x + 2) + y])
+        if (p.name == 'k' &&
+            pos.kingsidecastling[(1 - p.colour)/2] &&
+            !pos.occupancy[8*(x + 1) + y] && 
+            !pos.occupancy[8*(x + 2) + y])
         {
-            p->moves.push_back(-1);
+            p.moves.push_back(-1);
         }
 
-        if (p->name == 'k' && 
-            pos->queensidecastling[(1 - p->colour)/2] && 
-            !pos->occupancy[8*(x - 1) + y] && 
-            !pos->occupancy[8*(x - 2) + y] && 
-            !pos->occupancy[8*(x - 3) + y])
+        if (p.name == 'k' && 
+            pos.queensidecastling[(1 - p.colour)/2] && 
+            !pos.occupancy[8*(x - 1) + y] && 
+            !pos.occupancy[8*(x - 2) + y] && 
+            !pos.occupancy[8*(x - 3) + y])
         {
-            p->moves.push_back(-2);
+            p.moves.push_back(-2);
         }
 
-        int n_hops = p->hops.size();
+        int n_hops = p.hops.size();
 
         for (int i = 0; i < n_hops; ++i)
         {
-            if (x + p->hops[i][1] <= 7 && 
-                x + p->hops[i][1] >= 0 &&
-                y + p->hops[i][0] <= 7 &&
-                y + p->hops[i][0] >= 0 &&
-                p->colour*GetColour(pos, 8*(x + p->hops[i][1]) + y + p->hops[i][0]) <= 0)
+            if (x + p.hops[i][1] <= 7 && 
+                x + p.hops[i][1] >= 0 &&
+                y + p.hops[i][0] <= 7 &&
+                y + p.hops[i][0] >= 0 &&
+                p.colour*GetColour(pos, 8*(x + p.hops[i][1]) + y + p.hops[i][0]) <= 0)
             {
-                p->moves.push_back(8*(x + p->hops[i][1]) + y + p->hops[i][0]);
+                p.moves.push_back(8*(x + p.hops[i][1]) + y + p.hops[i][0]);
             }
         }
     }
 }
 
-void Board::PrintPosition(Position*& pos)
+void Board::PrintPosition(Position& pos)
 {
     std::cout << std::endl;
 
@@ -556,22 +549,22 @@ void Board::PrintPosition(Position*& pos)
 
         for (int j = 0; j < 8; ++j)
         {
-            if (!pos->occupancy[8*j + i])
+            if (!pos.occupancy[8*j + i])
             {
                 std::cout << " . ";
             }
 
             else 
             {
-                Piece*& p = pieces[pos->occupancy[8*j + i] - 1];
-                char alignment = p->colour == 1 ? 'w' : 'b';
-                std::cout << alignment << p->name << ' ';
+                Piece& p = pieces[pos.occupancy[8*j + i] - 1];
+                char alignment = p.colour == 1 ? 'w' : 'b';
+                std::cout << alignment << p.name << ' ';
             }
         }      
     }
 }
 
-void Board::DisplayMoves(const Position*& pos)
+void Board::DisplayMoves(const Position& pos)
 {
     GetMoves(current);
 
@@ -579,13 +572,13 @@ void Board::DisplayMoves(const Position*& pos)
 
     for (int i = 0; i < 16; ++i)
     {
-        int index = i + 8*(1 - pos->turn);
+        int index = i + 8*(1 - pos.turn);
 
-        if (pieces[index])
+        if (pos.piece_occupancy[index] >= 0)
         {   
             std::cout << std::endl;
 
-            std::vector<int>& moves = pieces[index]->moves;
+            std::vector<int>& moves = pieces[index].moves;
 
             int n_moves = moves.size();
 
@@ -610,7 +603,7 @@ void Board::DisplayMoves(const Position*& pos)
                 }
 
 
-                std::cout << pieces[index]->name << GetSquare(moves[i]) << ' ';
+                std::cout << pieces[index].name << GetSquare(moves[i]) << ' ';
             }
         }
     }
@@ -618,51 +611,38 @@ void Board::DisplayMoves(const Position*& pos)
 
 Board::Board()
 {
-    current = new Position();
+    current = Position();
 
-    pieces = std::vector<Piece*>(32);
+    pieces = std::vector<Piece>(32);
 
-    pieces[0] = new Rook(1, 0);
-    pieces[1] = new Knight(2, 8);
-    pieces[2] = new Bishop(3, 16);
-    pieces[3] = new Queen(4, 24);
-    pieces[4] = new King(5, 32);
-    pieces[5] = new Bishop(6, 40);
-    pieces[6] = new Knight(7, 48);
-    pieces[7] = new Rook(8, 56);
+    pieces[0] = Rook(1, 0);
+    pieces[1] = Knight(2, 8);
+    pieces[2] = Bishop(3, 16);
+    pieces[3] = Queen(4, 24);
+    pieces[4] = King(5, 32);
+    pieces[5] = Bishop(6, 40);
+    pieces[6] = Knight(7, 48);
+    pieces[7] = Rook(8, 56);
 
     for (int i = 0; i < 8; ++i)
     {
-        pieces[8 + i] = new Pawn(i + 9, 8*i + 1);
+        pieces[8 + i] = Pawn(i + 9, 8*i + 1);
     }
 
-    pieces[16] = new Rook(17, 7);
-    pieces[17] = new Knight(18, 15);
-    pieces[18] = new Bishop(19, 23);
-    pieces[19] = new Queen(20, 31);
-    pieces[20] = new King(21, 39);
-    pieces[21] = new Bishop(22, 47);
-    pieces[22] = new Knight(23, 55);
-    pieces[23] = new Rook(24, 63);
+    pieces[16] = Rook(17, 7);
+    pieces[17] = Knight(18, 15);
+    pieces[18] = Bishop(19, 23);
+    pieces[19] = Queen(20, 31);
+    pieces[20] = King(21, 39);
+    pieces[21] = Bishop(22, 47);
+    pieces[22] = Knight(23, 55);
+    pieces[23] = Rook(24, 63);
 
     for (int i = 0; i < 8; ++i)
     {
-        pieces[i + 24] = new Pawn(i + 25, 8*i + 6);
+        pieces[i + 24] = Pawn(i + 25, 8*i + 6);
     }
 }
 
 Board::~Board()
-{
-    delete current;
-
-    int n_pieces = pieces.size();
-
-    for (int i = 0; i < n_pieces; ++i)
-    {
-        if (pieces[i])
-        {
-            delete pieces[i];
-            pieces[i] = NULL;
-        }
-    }
-}
+{}

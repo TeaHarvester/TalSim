@@ -9,7 +9,6 @@
 struct Tree
 {
     int layer;
-    int n_branch;
     Position position;
     std::vector<Tree*> branches;
     std::vector<bool> alive;

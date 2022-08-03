@@ -24,8 +24,6 @@ class Engine
     Board& board;
 
     void Evaluate(Position*& pos);
-    void Transpose();
-
 };
 
 #endif
