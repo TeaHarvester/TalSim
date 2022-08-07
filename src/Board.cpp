@@ -320,23 +320,23 @@ void Board::Arrange(Position& pos)
                 switch (pos.promotions[i + 8*parity])
                 {
                 case 'q':
-                    p = Queen(i + 1, p.position);
+                    p = Queen(p.id, p.position);
                     break;
 
                 case 'n':
-                    p = Knight(i + 1, p.position);
+                    p = Knight(p.id, p.position);
                     break;
 
                 case 'b':
-                    p = Bishop(i + 1, p.position);
+                    p = Bishop(p.id, p.position);
                     break;
 
                 case 'r':
-                    p = Rook(i + 1, p.position);
+                    p = Rook(p.id, p.position);
                     break;
                 
                 default:
-                    p = Pawn(i + 1, p.position);
+                    p = Pawn(p.id, p.position);
                     break;
                 }
             }
