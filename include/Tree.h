@@ -14,7 +14,6 @@ struct Tree
     std::vector<bool> alive;
 
     std::vector<Tree*> GetBranches(const int depth);
-    // void Branch(Position*& pos);
     Tree(Position& pos, int l = 0);
     Tree();
     ~Tree();

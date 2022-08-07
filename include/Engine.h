@@ -13,8 +13,8 @@ class Engine
     public:
     Tree tree;
 
-    void SuperEvaluate(Position& pos);
-    void BuildTree(const int depth, Tree& t);
+    void SuperEvaluate(Position& pos, const int depth);
+    void BuildTree(Tree& t);
     Engine(Board& b);
     ~Engine();
 
