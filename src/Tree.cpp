@@ -11,45 +11,48 @@ std::vector<Tree*>& Tree::GetBranches(const int depth, std::vector<Tree*>& branc
 {
     if (layer < depth)
     {
-        for (auto branchlet = branches.begin(); branchlet < branches.end(); ++branchlet)
+        auto leaf = alive.begin();
+
+        for (auto branchlet = branches.begin(); branchlet < branches.end(); ++branchlet, ++leaf)
         {
-            branch = (*branchlet)->GetBranches(depth, branch);
+            if (*leaf)
+            {
+                branch = (*branchlet)->GetBranches(depth, branch);
+            }
         }
     }
 
     else
     {
-        size_t canopy = branches.size();
-        branch.resize(branch.size() + canopy);
-        auto harvest = branch.end() - canopy;
+        // size_t canopy = branches.size();
+        // branch.resize(branch.size() + canopy);
+        // auto harvest = branch.end() - canopy;
 
-        for (auto branchlet = branches.begin(); branchlet < branches.end(); ++branchlet, ++harvest)
-        {
-            *harvest = *branchlet;
+        auto leaf = alive.begin();
+
+        for (auto branchlet = branches.begin(); branchlet < branches.end(); ++branchlet, ++leaf)
+        {         
+            if (*leaf)
+            {
+                branch.push_back(*branchlet);
+            }  
         }
     }
-
     return branch;
 }
-
-// void Tree::Branch(Position*& pos)
-// {
-//     branches.push_back(new Tree(pos, layer + 1));
-//     ++n_branch;
-// }
 
 Tree::Tree(Position& pos, int l) : 
 layer(l),
 position(pos),
 branches(),
-alive(true)
+alive()
 {}
 
 Tree::Tree() : 
 layer(),
 position(),
 branches(),
-alive(true)
+alive()
 {}
 
 Tree::~Tree()

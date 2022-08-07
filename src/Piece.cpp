@@ -22,11 +22,10 @@ Piece::Piece()
 Piece::Piece(int number, int pos) :
 id(number),
 colour(id <= 16? 1 : -1),
-position(pos)
-{
-    vectors = std::vector<std::vector<int>>(1);
-    vectors[0] = std::vector<int>{0, 0};
-}
+position(pos),
+awake(true),
+pin_vector(-1)
+{}
 
 Pawn::Pawn(int number, int pos) : 
 Piece(number, pos)
@@ -38,63 +37,35 @@ Knight::Knight(int number, int pos) :
 Piece(number, pos)
 {
     name = 'n';
-
-    hops = std::vector<std::vector<int>>(8);
-    hops[0] = std::vector<int>{2, 1};
-    hops[1] = std::vector<int>{1, 2};
-    hops[2] = std::vector<int>{-2, 1};
-    hops[3] = std::vector<int>{-1, 2};
-    hops[4] = std::vector<int>{2, -1};
-    hops[5] = std::vector<int>{1, -2};
-    hops[6] = std::vector<int>{-2, -1};
-    hops[7] = std::vector<int>{-1, -2};
 }
 
 Bishop::Bishop(int number, int pos) : 
 Piece(number, pos)
 {
     name = 'b';
-
-    vectors = std::vector<std::vector<int>>(2);
-    vectors[0] = std::vector<int>{1, 1};
-    vectors[1] = std::vector<int>{1, -1};
 }
 
 Rook::Rook(int number, int pos) : 
 Piece(number, pos)
 {
     name = 'r';
-
-    vectors = std::vector<std::vector<int>>(2);
-    vectors[0] = std::vector<int>{1, 0};
-    vectors[1] = std::vector<int>{0, 1};
 }
 
 Queen::Queen(int number, int pos) : 
 Piece(number, pos)
 {
     name = 'q';
-
-    vectors = std::vector<std::vector<int>>(4);
-    vectors[0] = std::vector<int>{1, 0};
-    vectors[1] = std::vector<int>{0, 1};
-    vectors[2] = std::vector<int>{1, 1};
-    vectors[3] = std::vector<int>{-1, 1};
 }
 
 King::King(int number, int pos) : 
 Piece(number, pos)
 {   
     name = 'k';
-
-    hops = std::vector<std::vector<int>>(8);
-    hops[0] = std::vector<int>{1, 0};
-    hops[1] = std::vector<int>{0, 1};
-    hops[2] = std::vector<int>{1, 1};
-    hops[3] = std::vector<int>{-1, 0};
-    hops[4] = std::vector<int>{0, -1};
-    hops[5] = std::vector<int>{-1, 1};
-    hops[6] = std::vector<int>{1, -1};
-    hops[7] = std::vector<int>{-1, -1};
 }
 
+const std::vector<std::vector<int>> Queen::vectors = {{1, 0}, {0, 1}, {1, 1}, {1, -1}};
+const std::vector<std::vector<int>> Knight::vectors = {{1, -2}, {2, -1}, {2, 1}, {1, 2}};
+const std::vector<std::vector<int>> Bishop::vectors = {{1, 1}, {1, -1}};
+const std::vector<std::vector<int>> Rook::vectors = {{1, 0}, {0, 1}};
+const std::vector<std::vector<int>> Pawn::vectors = {{2, 0}, {1, 0}, {1, 1}, {1, -1}};
+const std::vector<std::vector<int>> King::vectors = {{1, 0}, {0, 1}, {1, 1}, {1, -1}};

@@ -1,86 +1,8 @@
 #include<iostream>
+#include "tgmath.h"
 #include "Board.h"
 #include "Piece.h"
 #include "Helpers.h"
-
-bool Board::Check(Position& pos, const int colour)
-{
-    int parity = (1 - colour)/2;
-    int king_position = pos.piece_occupancy[4 + 16*parity];
-    int pos_y = king_position % 8;
-    int pos_x = (king_position - pos_y)/8;
-
-    int vectors[4][2] = {{1, 0}, {0, 1}, {1, 1}, {1, -1}};
-    int hops[4][2] = {{-2, 1}, {-1, 2}, {1, 2}, {2, 1}};
-
-    for (int i = 0; i < 4; ++i)
-    {
-        for (int direction = -1; direction < 2; direction += 2)
-        {
-            int x_hop = direction*hops[i][1];
-            int y_hop = direction*hops[i][0];
-
-            if (pos_x + x_hop <= 7 && 
-                pos_y + y_hop <= 7 && 
-                pos_x + x_hop >= 0 && 
-                pos_y + y_hop >= 0)
-            {
-                int leap = 8*(pos_x + x_hop) + pos_y + y_hop;
-
-                if (colour*GetColour(pos, leap) == -1 && GetAggressor(pos, leap, -1*colour) == 'n')
-                {
-                    return true;
-                }
-            }
-
-            int x = pos_x;
-            int y = pos_y;
-            int x_movement = direction*vectors[i][1];
-            int y_movement = direction*vectors[i][0];
-
-            while (x + x_movement <= 7 && 
-                    y + y_movement <= 7 && 
-                    x + x_movement >= 0 && 
-                    y + y_movement >= 0)
-            {
-                x += x_movement;
-                y += y_movement;
-
-                if (GetColour(pos, 8*x + y)*colour == 1)
-                {
-                    break;
-                }
-
-                else if (GetColour(pos, 8*x + y)*colour == -1)
-                {
-                    char aggressor = GetAggressor(pos, 8*x + y, -1*colour);
-
-                    if (aggressor == 'q' ||
-                        ((aggressor == 'r') && (!vectors[i][0] || !vectors[i][1])) ||
-                        ((aggressor == 'b') && (vectors[i][0] && vectors[i][1])))
-                    {
-                        return true;
-                    }
-                }
-            }
-        }
-    }
-
-    int opposing_king_position = pos.piece_occupancy[4 + 16*(1 - parity)];
-    int op_y = opposing_king_position % 8;
-    int op_x = (opposing_king_position - op_y)/8;
-
-    int sep_x = pos_x - op_x;
-    int sep_y = pos_y - op_y;
-
-    if ((sep_x == 1 || sep_x == -1) &&
-        (sep_y == 1 || sep_y == -1))
-        {
-            return true;
-        }
-
-    return false;
-}
 
 int Board::GetColour(Position& pos, const int square)
 {
@@ -92,25 +14,10 @@ int Board::GetColour(Position& pos, const int square)
     return pos.occupancy[square] <= 16 ? 1 : -1; 
 }
 
-char Board::GetAggressor(Position& pos,  const int square, const int colour)
-{
-    int parity = (1 - colour)/2;
-
-    for (int i = 0; i < 16; ++i)
-    {
-        Piece& p = pieces[i + 16*parity];
-
-        if (pos.piece_occupancy[i] >= 0 && p.position == square)
-        {
-            return p.name;
-        }
-    }
-
-    return '\0';
-}
-
 void Board::Move(const std::string move, const char prom)
 {
+    const int parity = (1 - current.turn)/2;
+
     GetMoves(current);
 
     char name = move[0];
@@ -120,13 +27,13 @@ void Board::Move(const std::string move, const char prom)
 
     if (move == "00")
     {
-        Move(5 + 8*(1 - current.turn), -1);
+        Move(5 + 16*parity, -1);
         return;
     }
 
     if (move == "000")
     {
-        Move(5 + 8*(1 - current.turn), -2);
+        Move(5 + 16*parity, -2);
         return;
     }
 
@@ -150,28 +57,27 @@ void Board::Move(const std::string move, const char prom)
 
     int destination = 8*file + rank;
 
-    std::vector<Piece*> candidates;
+    std::vector<Piece> candidates;
 
-    for (int i = 0; i < 16; ++i)
+    for (int i = 16*parity; i < 16*(parity + 1); ++i)
     {
-        int index = i +  8*(1 - current.turn);
+        Piece& p = current.pieces[i];
 
-        if (current.piece_occupancy[index] >= 0 && pieces[index].name == name)
+        if (p.awake && p.name == name)
         {
-            std::vector<int>& moves = pieces[index].moves;
-            int n_moves = moves.size();
+            std::vector<int>& moves = p.moves;
 
-            for (int i = 0; i < n_moves; ++i)
+            for (auto move = moves.begin(); move < moves.end(); ++move)
             {
-                if (moves[i] == destination)
+                if (*move == destination)
                 {
-                    candidates.push_back(&pieces[index]);
+                    candidates.push_back(p);
                 }
             }
         }
     }
 
-    int n_candidates = candidates.size();
+    size_t n_candidates = candidates.size();
     int id = 0;
 
     switch (n_candidates)
@@ -181,18 +87,18 @@ void Board::Move(const std::string move, const char prom)
         return;
 
     case 1:
-        id = candidates[0]->id;
+        id = candidates[0].id;
         break;
 
     case 2:
         for (int i = 0; i < 2; ++i)
         {
-            int y = candidates[i]->position % 8;
-            int x = candidates[i]->position / 8;
+            int y = candidates[i].position % 8;
+            int x = candidates[i].position / 8;
 
             if ((disamb >= 97 && x == disamb - 97) || (disamb < 97 && y == disamb - 49))
             {
-                id = candidates[i]->id;
+                id = candidates[i].id;
             }
         }
 
@@ -212,235 +118,576 @@ void Board::Move(const std::string move, const char prom)
 void Board::Move(const int id, const int destination, const char prom)
 {
     GetMoves(current);
-    current = Move(id, destination, current, prom);
+    Move(id, destination, current, prom);
 }
 
-Position Board::Move(const int id, const int destination, Position& pos, const char prom)
+void Board::Move(const int id, const int destination, Position& pos, const char prom)
 {
-    Piece& p = pieces[id - 1];
-    Position new_pos;
-    const int parity = 1 - pos.turn/2;
-
+    Piece& p = pos.pieces[id - 1];
+    const int parity = (1 - pos.turn)/2;
     int init_pos = p.position;
+    int captured;
+    pos.control[parity].clear();
 
     if (pos.kingsidecastling && destination == -1)
     {
-        new_pos = Position(pos, id, init_pos + 16);
-
         int rook_id = 8 + 16*parity;
+        pos.pieces[rook_id - 1].position -= 16;
+        p.position += 16;
+        pos.occupancy[56 + 8*parity] = 0;
+        pos.occupancy[32 + 8*parity] = 0;
+        pos.occupancy[40 + 8*parity] = rook_id;
+        pos.occupancy[48 + 8*parity] = p.id;
+        pos.kingsidecastling[parity] = false;
+        pos.queensidecastling[parity] = false;
 
-        new_pos = Position(new_pos, rook_id, pieces[rook_id - 1].position - 16);
-
-        new_pos.kingsidecastling[parity] = false;
-        new_pos.queensidecastling[parity] = false;
-        new_pos.turn = -1*pos.turn;
-        new_pos.movelist.push_back({id, destination});
-
-        return new_pos;
+        goto end;
     }
 
     else if (pos.queensidecastling && destination == -2)
     {
-        new_pos = Position(pos, id, init_pos - 16);
 
         int rook_id = 1 + 16*parity;
+        pos.pieces[rook_id - 1].position += 24;
+        p.position -= 16;
+        pos.occupancy[0 + 8*parity] = 0;
+        pos.occupancy[32 + 8*parity] = 0;
+        pos.occupancy[16 + 8*parity] = rook_id;
+        pos.occupancy[24 + 8*parity] = p.id;
+        pos.kingsidecastling[parity] = false;
+        pos.queensidecastling[parity] = false;
 
-        new_pos = Position(new_pos, rook_id, pieces[rook_id - 1].position + 24);
-
-        new_pos.kingsidecastling[parity] = false;
-        new_pos.queensidecastling[parity] = false;
-        new_pos.turn = -1*pos.turn;
-        new_pos.movelist.push_back({id, destination});
-
-        return new_pos;
+        goto end;
     }
 
-    new_pos = Position(pos, id, destination, prom);
-
-    int captured = 0;
-
-    if (p.name == 'k')
+    switch (p.name)
     {
-        new_pos.kingsidecastling[parity] = false;
-        new_pos.queensidecastling[parity] = false;
-    }
+        case 'q':
+            break;
 
-    else if (id == 1 || id == 17)
-    {
-        new_pos.queensidecastling[parity] = false;
-    }
+        case 'b':
+            break;
 
-    else if (id == 8 || id == 24)
-    {
-        new_pos.kingsidecastling[parity] = false;
-    }
-
-    else if (p.name == 'p')
-    {
-        if (pos.turn*(destination - init_pos) == 2)
-        {
-            new_pos.passant = destination - pos.turn;
-        }
-
-        else if ((destination - init_pos == -7*pos.turn || destination - init_pos == 9*pos.turn) && 
-                    destination == pos.passant)
-        {
-            captured = pos.occupancy[destination - pos.turn];
-            new_pos.occupancy[destination - pos.turn] = 0;
-            new_pos.piece_occupancy[captured - 1] = -1;
-        }
-    }
-
-    new_pos.turn = -1*pos.turn;
-    new_pos.movelist.push_back({id, destination});
-
-    return new_pos;
-}
-
-void Board::Arrange(Position& pos)
-{
-    for (auto p = pieces.begin(); p < pieces.end(); ++p)
-    {
-        const int& position =  pos.piece_occupancy[p->id - 1];
-
-        if (position > -1)
-        {
-            p->position = position;
-        }
-    }
-
-    for (int parity = 0; parity < 2; ++parity)
-    {
-        for (int i = 0; i < 8; ++i)
-        {
-            Piece& p = pieces[i + 16*parity + 8];
-
-            if (p.name != pos.promotions[i + 8*parity])
+        case 'r':
+            if (p.id == 1 + 16*parity)
             {
-                switch (pos.promotions[i + 8*parity])
-                {
-                case 'q':
-                    p = Queen(i + 1, p.position);
-                    break;
-
-                case 'n':
-                    p = Knight(i + 1, p.position);
-                    break;
-
-                case 'b':
-                    p = Bishop(i + 1, p.position);
-                    break;
-
-                case 'r':
-                    p = Rook(i + 1, p.position);
-                    break;
-                
-                default:
-                    p = Pawn(i + 1, p.position);
-                    break;
-                }
-            }
-        }
-    }
-}
-
-void Board::TrimMoves(Position& pos)
-{
-    Position new_pos;
-    const int parity = (1 - pos.turn/2);
-
-    for (auto p = pieces.begin() + 16*parity; p < pieces.end() + 16*(parity - 1); ++p)
-    {
-        auto iter = p->moves.begin();
-
-        while (iter < p->moves.end())
-        {
-            start:
-
-            int init_pos = p->position;
-            int destination = *iter;
-
-            if (pos.kingsidecastling && destination == -1)
-            {
-                for (int i = 0; i < 3; ++i)
-                {
-                    new_pos = Position(pos, p->id, init_pos + 8*i);
-
-                    if (Check(new_pos, pos.turn))
-                    {
-                        iter = p->moves.erase(iter);
-                        goto start;
-                    }
-                }
-            }
-
-            else if (pos.queensidecastling && destination == -2)
-            {
-                for (int i = 0; i < 3; ++i)
-                {
-                    new_pos = Position(pos, p->id, init_pos - 8*i);
-
-                    if (Check(new_pos, pos.turn))
-                    {
-                        iter = p->moves.erase(iter);
-                        goto start;
-                    }
-                }
+                pos.queensidecastling[parity] = false;
             }
 
             else
             {
-                new_pos = Position(pos, p->id, destination);
+                pos.kingsidecastling[parity] = false;
+            }
 
-                if (Check(new_pos, pos.turn))
+            break;
+
+        case 'n':
+            break;
+
+        case 'k':
+            pos.kingsidecastling[parity] = false;
+            pos.queensidecastling[parity] = false;
+            break;
+
+        case 'p':
+            if (pos.turn*(destination - init_pos) == 2)
+            {
+                pos.passant = destination - pos.turn;
+            }
+
+            else if ((destination - init_pos == -7*pos.turn || destination - init_pos == 9*pos.turn) && 
+                      destination == pos.passant)
+            {
+                int captured = pos.occupancy[destination - pos.turn];
+                pos.pieces[captured - 1].awake = false;
+                pos.occupancy[destination - pos.turn] = 0;
+            }
+            break;
+
+        default:
+            break;
+    }
+
+    captured = pos.occupancy[destination];
+
+    if (captured > 0)
+    {
+        pos.pieces[captured - 1].awake = false;
+    }
+
+    pos.occupancy[destination] = id;
+    pos.occupancy[p.position] = 0;
+    p.position = destination;
+
+    if (id > 8 + 16*parity && id <= 16*(parity + 1))
+    {
+        int promotion_rank = parity ? 0 : 7;
+
+        if (destination % 8 == promotion_rank && p.name == 'p')
+        {
+            switch (prom)
+            {
+            case 'q':
+                p = Queen(p.id, p.position);
+                break;
+
+            case 'n':
+                p = Knight(p.id, p.position);
+                break;
+
+            case 'b':
+                p = Bishop(p.id, p.position);
+                break;
+
+            case 'r':
+                p = Rook(p.id, p.position);
+                break;
+            
+            default:
+                break;
+            }
+        }
+    }
+
+    end:
+
+    for (int i = 16*parity; i < 16*(1 + parity); ++i)
+    {
+        Piece& p = pos.pieces[i];
+
+        switch (p.name)
+        {
+        case 'q':
+        GetVectorControl(p, pos);
+            break;
+
+        case 'b':
+        GetVectorControl(p, pos);
+            break;
+
+        case 'r':
+        GetVectorControl(p, pos);
+            break;
+
+        case 'n':
+        GetHopControl(p, pos);
+            break;
+
+        case 'k':
+        GetHopControl(p, pos);
+            break;
+    
+        case 'p':
+        GetPawnControl(p, pos);
+            break;
+
+        default:
+            break;
+        }
+    }
+
+    pos.turn = -1*pos.turn;
+    pos.movelist.push_back({id, destination});
+}
+
+void Board::GetPinVectors(Position& pos)
+{
+    const int parity = (1 - pos.turn)/2;
+    Piece& king = pos.pieces[4 + 16*parity];
+
+    const int pos_y = king.position % 8;
+    const int pos_x = (king.position - pos_y)/8;
+    const int n_vectors = 2;
+
+    for (int i = 0; i < n_vectors; ++i)
+    {
+        for (int direction = -1; direction < 2; direction += 2)
+        {
+            int x = pos_x;
+            int y = pos_y;
+            const int x_movement = direction*Bishop::vectors[i][1];
+            const int y_movement = direction*Bishop::vectors[i][0];
+            int pin = -1;
+
+            while (x + x_movement <= 7 && 
+                    y + y_movement <= 7 && 
+                    x + x_movement >= 0 && 
+                    y + y_movement >= 0)
+            {
+                x += x_movement;
+                y += y_movement;
+
+                if (GetColour(pos, 8*x + y)*king.colour == 1)
                 {
-                    iter = p->moves.erase(iter);
-                    continue;
-                }
-            } 
+                    if (pin >= 0)
+                    {
+                        break;
+                    }
 
-            ++iter;
+                    else
+                    {
+                        pin = 8*x + y;
+                    }
+                }
+
+                else if (GetColour(pos, 8*x + y)*king.colour == -1)
+                {
+                    if (!(pos.pieces[pos.occupancy[8*x + y] - 1].name == 'b' || 
+                        pos.pieces[pos.occupancy[8*x + y] - 1].name == 'q'))
+                        {
+                            break;
+                        }
+
+                    if (pin >= 0)
+                    {
+                        pos.pieces[pos.occupancy[pin] - 1].pin_vector = 8*x_movement + y_movement;
+                    }
+
+                    break;
+                }
+            }
+        }
+    }
+
+    for (int i = 0; i < n_vectors; ++i)
+    {
+        for (int direction = -1; direction < 2; direction += 2)
+        {
+            int x = pos_x;
+            int y = pos_y;
+            const int x_movement = direction*Rook::vectors[i][1];
+            const int y_movement = direction*Rook::vectors[i][0];
+            int pin = -1;
+
+            while (x + x_movement <= 7 && 
+                    y + y_movement <= 7 && 
+                    x + x_movement >= 0 && 
+                    y + y_movement >= 0)
+            {
+                x += x_movement;
+                y += y_movement;
+
+                if (GetColour(pos, 8*x + y)*king.colour == 1)
+                {
+                    if (pin >= 0)
+                    {
+                        break;
+                    }
+
+                    else
+                    {
+                        pin = 8*x + y;
+                    }
+                }
+
+                else if (GetColour(pos, 8*x + y)*king.colour == -1)
+                {
+                    if  (!(pos.pieces[pos.occupancy[8*x + y] - 1].name == 'r' || 
+                        pos.pieces[pos.occupancy[8*x + y] - 1].name == 'q'))
+                    {
+                        break;
+                    }
+
+                    if (pin >= 0)
+                    {
+                        pos.pieces[pos.occupancy[pin] - 1].pin_vector = 8*x_movement + y_movement;
+                    }
+
+                    break;
+                }
+            }
         }
     }
 }
 
 void Board::GetMoves(Position& pos)
 {
-    Arrange(pos);
-
-    for (auto p = pieces.begin(); p < pieces.end(); ++p)
-    {   
-        GetMoves(*p, pos);
-    }
-
-    TrimMoves(pos);
-}
-
-void Board::GetMoves(Piece& p, Position& pos)
-{   
-    p.moves.clear();
     const int parity = (1 - pos.turn)/2;
 
-    if (pos.piece_occupancy[p.id - 1] == -1)
+    Piece& op_king = pos.pieces[4 + 16*(1 - parity)];
+    Piece& king = pos.pieces[4 + 16*(parity)];
+    size_t checks = king.check_vectors.size();
+    std::vector<int>* legal_moves = NULL;
+
+    op_king.check_vectors.clear();
+    GetPinVectors(pos);
+
+    for (int i = 16*parity; i < 16*(parity + 1); ++i)
     {
-        return;
+        pos.pieces[i].moves.clear();
+        pos.pieces[i].pin_vector = -1;
     }
 
+    if (checks > 0)
+    {
+        if (checks > 1)
+        {
+            GetKingMoves(king, pos);
+            return;
+        }
+
+        else 
+        {
+            const int king_y = king.position % 8; 
+            const int king_x = (king.position - king_y)/8; 
+            const int aggressor_y = king.check_vectors[0] % 8;   
+            const int aggressor_x = (king.check_vectors[0] - aggressor_y)/8; 
+            legal_moves = new std::vector<int>;
+            char& aggressor = pos.pieces[pos.occupancy[king.check_vectors[0]] - 1].name;
+
+            if (aggressor == 'q' || aggressor == 'b' || aggressor == 'r' )
+            {
+                const int vec_y = aggressor_y - king_y;
+                const int vec_x = aggressor_x - king_x;
+                const int incr_x = (vec_x > 0) - (vec_x < 0);
+                const int incr_y = (vec_y > 0) - (vec_y < 0);
+                int x = king_x + incr_x;
+                int y = king_y + incr_y;
+
+                while (x <= aggressor_x && y <= aggressor_y)
+                {
+                    legal_moves->push_back(8*x + y);
+                    x += incr_x;
+                    y += incr_y;
+                }
+            }
+
+            else 
+            {
+                legal_moves->push_back(8*aggressor_x + aggressor_y);
+            }
+        }
+    }
+
+
+    for (int i = 16*parity; i < 16*(parity + 1); ++i)
+    {
+        Piece& p = pos.pieces[i];
+
+        if (!p.awake)
+        {
+            continue; 
+        }
+
+        switch (p.name)
+        {
+        case 'q':
+        GetVectorMoves(p, pos, legal_moves);
+            break;
+
+        case 'b':
+        GetVectorMoves(p, pos, legal_moves);
+            break;
+
+        case 'r':
+        GetVectorMoves(p, pos, legal_moves);
+            break;
+
+        case 'n':
+        GetKnightMoves(p, pos, legal_moves);
+            break;
+
+        case 'k':
+        GetKingMoves(p, pos);
+            break;
+    
+        case 'p':
+        GetPawnMoves(p, pos, legal_moves);
+            break;
+
+        default:
+            break;
+        }
+    }
+
+    if (legal_moves)
+    {
+        delete legal_moves;
+    }
+}
+
+void Board::GetVectorControl(Piece& p, Position& pos)
+{
+    const int parity = (1 - p.colour)/2;
     const int pos_y = p.position % 8;
     const int pos_x = (p.position - pos_y)/8;
+    std::vector<std::vector<int>> vectors;
 
-    const int n_vectors = p.vectors.size();
-
-    if (n_vectors > 1)
+    switch (p.name)
     {
-        for (int i = 0; i < n_vectors; ++i)
+    case 'q':
+        vectors = Queen::vectors;
+        break;
+
+    case 'b':
+        vectors = Bishop::vectors;
+        break;
+
+    case 'r':
+        vectors = Rook::vectors;
+        break;
+
+    default:
+        break;
+    }
+
+    Piece& op_king = pos.pieces[4 + 16*(1 - parity)];
+
+    for (auto vector = vectors.begin(); vector < vectors.end(); ++vector)
+    {
+        for (int direction = -1; direction < 2; direction += 2)
+        {
+            int x = pos_x;
+            int y = pos_y;
+            const int x_movement = direction*(*vector)[1];
+            const int y_movement = direction*(*vector)[0];
+
+            while (x + x_movement <= 7 && 
+                    y + y_movement <= 7 && 
+                    x + x_movement >= 0 && 
+                    y + y_movement >= 0)
+            {
+                x += x_movement;
+                y += y_movement;
+
+                int square = 8*x + y;
+                pos.control[parity][square].push_back(p.id);
+
+                if (pos.occupancy[square])
+                {
+                    if (square == op_king.position)
+                    {
+                        op_king.check_vectors.push_back(p.position);
+                    }
+
+                    break;
+                }
+            }
+        }
+    }
+}
+
+void Board::GetHopControl(Piece& p, Position& pos)
+{
+    const int parity = (1 - p.colour)/2;
+    const int pos_y = p.position % 8;
+    const int pos_x = (p.position - pos_y)/8;
+    std::vector<std::vector<int>> vectors;
+
+    switch (p.name)
+    {
+    case 'n':
+        vectors = Knight::vectors;
+        break;
+
+    case 'k':
+        vectors = King::vectors;
+        break;
+
+    default:
+        break;
+    }
+
+    Piece& op_king = pos.pieces[4 + 16*(1 - parity)];
+
+    for (auto vector = vectors.begin(); vector < vectors.end(); ++vector)
+    {
+        for (int direction = -1; direction < 2; direction += 2)
+        {
+            int x = pos_x;
+            int y = pos_y;
+            const int x_movement = direction*(*vector)[1];
+            const int y_movement = direction*(*vector)[0];
+
+            if (x + x_movement <= 7 && 
+                y + y_movement <= 7 && 
+                x + x_movement >= 0 && 
+                y + y_movement >= 0)
+            {
+                x += x_movement;
+                y += y_movement;
+
+                int square = 8*x + y;
+                pos.control[parity][square].push_back(p.id);
+
+                if (square == op_king.position)
+                {
+                    op_king.check_vectors.push_back(p.position);
+                }
+            }
+        }
+    }
+}
+
+void Board::GetPawnControl(Piece& p, Position& pos)
+{
+    const int parity = (1 - p.colour)/2;
+    const int y = p.position % 8;
+    const int x = (p.position - y)/8;
+    Piece& op_king = pos.pieces[4 + 16*(1 - parity)];
+
+    if (y + p.colour <= 7 &&
+        y + p.colour >= 0 &&
+        x + 1 <= 7)
+    {
+        int square = 8*(x + 1) + y + p.colour;
+        pos.control[parity][square].push_back(p.id);
+
+        if (square == op_king.position)
+        {
+            op_king.check_vectors.push_back(p.position);
+        }
+    }
+
+    if (y + p.colour <= 7 &&
+        y + p.colour >= 0 &&
+        x - 1 >= 0)
+    {
+        int square = 8*(x - 1) + y + p.colour;
+        pos.control[parity][square].push_back(p.id);
+
+        if (square == op_king.position)
+        {
+            op_king.check_vectors.push_back(p.position);
+        }
+    }
+}
+
+void Board::GetVectorMoves(Piece& p, Position& pos, std::vector<int>* legal_moves)
+{   
+    std::vector<std::vector<int>> vectors;
+
+    switch (p.name)
+    {
+    case 'q':
+        vectors = Queen::vectors;
+        break;
+
+    case 'b':
+        vectors = Bishop::vectors;
+        break;
+
+    case 'r':
+        vectors = Rook::vectors;
+        break;
+
+    default:
+        break;
+    }
+
+    if (legal_moves)
+    {
+        const int pos_y = p.position % 8;
+        const int pos_x = (p.position - pos_y)/8;
+
+        for (auto vector = vectors.begin(); vector < vectors.end(); ++vector)
         {
             for (int direction = -1; direction < 2; direction += 2)
             {
                 int x = pos_x;
                 int y = pos_y;
-               const int x_movement = direction*p.vectors[i][1];
-               const int y_movement = direction*p.vectors[i][0];
+                const int x_movement = direction*(*vector)[1];
+                const int y_movement = direction*(*vector)[0];
 
                 while (x + x_movement <= 7 && 
                        y + y_movement <= 7 && 
@@ -449,98 +696,349 @@ void Board::GetMoves(Piece& p, Position& pos)
                 {
                     x += x_movement;
                     y += y_movement;
+                    int square = 8*x + y;
 
-                    if (GetColour(pos, 8*x + y)*p.colour == 1)
+                if (GetColour(pos, square)*p.colour == 1)
+                {
+                    break;
+                }
+
+                    for (auto legal = legal_moves->begin(); legal < legal_moves->end(); ++legal)
                     {
-                        break;
+                        if (square == *legal)
+                        {
+                            p.moves.push_back(square);
+                            continue;
+                        }
                     }
-
-                    else if (GetColour(pos, 8*x + y)*p.colour == -1)
-                    {
-                        p.moves.push_back(8*x + y);
-                        break;
-                    }
-
-                    p.moves.push_back(8*x + y);
                 }
             }
         }
+
+        return;
     }
 
-    else if (p.name == 'p')
+    if (p.pin_vector >= 0)
     {
-        int x = pos_x;
-        int y = pos_y;
+        bool stuck = true;
 
-        if (y + 2*p.colour <= 7 &&
-            y + 2*p.colour >= 0 && 
-            pos.occupancy[8*x + y + p.colour] == 0  &&
-            pos.occupancy[8*x + y + 2*p.colour] == 0 &&
-            p.position == 8*p.id - 71 - 123*parity)
+        for (auto vector = vectors.begin(); vector < vectors.end(); ++vector)
         {
-            p.moves.push_back(8*x + y + p.colour);
-            p.moves.push_back(8*x + y + 2*p.colour);
-        }
-
-        else if (y + p.colour <= 7 &&
-                 y + p.colour >= 0 && 
-                 pos.occupancy[8*x + y + p.colour] == 0)
-        {
-            p.moves.push_back(8*x + y + p.colour);
-        }
-
-        if (y + p.colour <= 7 &&
-            y + p.colour >= 0 &&
-            x + 1 <= 7 &&
-            (p.colour*GetColour(pos, 8*(x + 1) + y + p.colour) == -1 || 8*(x + 1) + y + p.colour == pos.passant))
-        {
-            p.moves.push_back(8*(x + 1) + y + p.colour);
-        }
-
-        if (y + p.colour <= 7 &&
-            y + p.colour >= 0 &&
-            x - 1 >= 0 &&
-            (p.colour*GetColour(pos, 8*(x - 1) + y + p.colour) == -1 || 8*(x - 1) + y + p.colour == pos.passant))
-        {
-            p.moves.push_back(8*(x - 1) + y + p.colour);
-        }
-    }
-
-    else
-    {
-        int x = pos_x;
-        int y = pos_y;
-
-        if (p.name == 'k' &&
-            pos.kingsidecastling[(1 - p.colour)/2] &&
-            !pos.occupancy[8*(x + 1) + y] && 
-            !pos.occupancy[8*(x + 2) + y])
-        {
-            p.moves.push_back(-1);
-        }
-
-        if (p.name == 'k' && 
-            pos.queensidecastling[(1 - p.colour)/2] && 
-            !pos.occupancy[8*(x - 1) + y] && 
-            !pos.occupancy[8*(x - 2) + y] && 
-            !pos.occupancy[8*(x - 3) + y])
-        {
-            p.moves.push_back(-2);
-        }
-
-        int n_hops = p.hops.size();
-
-        for (int i = 0; i < n_hops; ++i)
-        {
-            if (x + p.hops[i][1] <= 7 && 
-                x + p.hops[i][1] >= 0 &&
-                y + p.hops[i][0] <= 7 &&
-                y + p.hops[i][0] >= 0 &&
-                p.colour*GetColour(pos, 8*(x + p.hops[i][1]) + y + p.hops[i][0]) <= 0)
+            if (8*(*vector)[1] + (*vector)[0] == p.pin_vector ||
+                -8*(*vector)[1] - (*vector)[0] == p.pin_vector)
             {
-                p.moves.push_back(8*(x + p.hops[i][1]) + y + p.hops[i][0]);
+                stuck = false;
+                break;
             }
         }
+
+        if (stuck)
+        {
+            return;
+        }
+
+        int square = p.position;
+
+        for (int i = 0; i < 7; ++i)
+        {
+            square += p.pin_vector;
+            p.moves.push_back(square);
+
+            if (pos.occupancy[square])
+            {
+                break;
+            }
+        }
+
+        square = p.position;
+
+        for (int i = 0; i < 7; ++i)
+        {
+            square -= p.pin_vector;
+
+            if (pos.occupancy[square])
+            {
+                break;
+            }
+
+            p.moves.push_back(square);
+        }
+
+        return;
+    }
+
+    const int pos_y = p.position % 8;
+    const int pos_x = (p.position - pos_y)/8;
+
+    for (auto vector = vectors.begin(); vector < vectors.end(); ++vector)
+    {
+        for (int direction = -1; direction < 2; direction += 2)
+        {
+            int x = pos_x;
+            int y = pos_y;
+            const int x_movement = direction*(*vector)[1];
+            const int y_movement = direction*(*vector)[0];
+
+            while (x + x_movement <= 7 && 
+                    y + y_movement <= 7 && 
+                    x + x_movement >= 0 && 
+                    y + y_movement >= 0)
+            {
+                x += x_movement;
+                y += y_movement;
+                const int square = 8*x + y;
+
+                if (GetColour(pos, square)*p.colour == 1)
+                {
+                    break;
+                }
+
+                else if (GetColour(pos, square)*p.colour == -1)
+                {
+                    p.moves.push_back(square);
+                    break;
+                }
+
+                p.moves.push_back(square);
+            }
+        }
+    }
+}
+
+void Board::GetKnightMoves(Piece& p, Position& pos, std::vector<int>* legal_moves)
+{
+    const std::vector<std::vector<int>>& vectors = Knight::vectors;
+
+    if (p.pin_vector > -1)
+    {
+        return;
+    }
+
+    if (legal_moves)
+    {
+        const int pos_y = p.position % 8;
+        const int pos_x = (p.position - pos_y)/8;
+
+        for (auto vector = vectors.begin(); vector < vectors.end(); ++vector)
+        {
+            for (int direction = -1; direction < 2; direction += 2)
+            {
+                const int x_movement = direction*(*vector)[1];
+                const int y_movement = direction*(*vector)[0];
+
+                if (pos_x + x_movement <= 7 && 
+                    pos_y + y_movement <= 7 && 
+                    pos_x + x_movement >= 0 && 
+                    pos_y + y_movement >= 0)
+                {
+                    const int square = 8*(pos_x + x_movement) + pos_y + y_movement;
+
+                    for (auto legal = legal_moves->begin(); legal < legal_moves->end(); ++legal)
+                    {
+                        if (square == *legal)
+                        {
+                            p.moves.push_back(square);
+                            continue;
+                        }
+                    }
+                }
+            }
+        }
+
+        return;
+    }
+
+    const int pos_y = p.position % 8;
+    const int pos_x = (p.position - pos_y)/8;
+
+    for (auto vector = vectors.begin(); vector < vectors.end(); ++vector)
+    {
+        for (int direction = -1; direction < 2; direction += 2)
+        {
+            const int x_movement = direction*(*vector)[1];
+            const int y_movement = direction*(*vector)[0];
+
+            if (pos_x + x_movement <= 7 && 
+                pos_y + y_movement <= 7 && 
+                pos_x + x_movement >= 0 && 
+                pos_y + y_movement >= 0)
+            {
+                const int square = 8*(pos_x + x_movement) + pos_y + y_movement;
+
+                if (p.colour*GetColour(pos, square) == 1)
+                {
+                    continue;
+                }
+
+                p.moves.push_back(square);
+            }
+        }
+    }
+}
+
+void Board::GetPawnMoves(Piece& p, Position& pos, std::vector<int>* legal_moves)
+{
+    const int parity = (1 - pos.turn)/2;
+    Piece& king = pos.pieces[4 + 16*parity];
+
+    if (legal_moves)
+    {
+        const int pos_y = p.position % 8;
+        const int pos_x = (p.position - pos_y)/8;
+
+        if (pos_y + 2*p.colour <= 7 &&
+            pos_y + 2*p.colour >= 0 && 
+            p.position == 8*p.id - 71 - 123*parity)
+        {
+            for (auto legal = legal_moves->begin(); legal < legal_moves->end(); ++legal)
+            {
+                const int square = 8*pos_x + pos_y + 2*p.colour;
+
+                if (square == *legal)
+                {
+                    p.moves.push_back(square);
+                }
+            }
+        }
+
+        else if (pos_y + p.colour <= 7 &&
+                 pos_y + p.colour >= 0)
+        {
+            for (auto legal = legal_moves->begin(); legal < legal_moves->end(); ++legal)
+            {
+                const int square = 8*pos_x + pos_y + p.colour;
+
+                if (square == *legal)
+                {
+                    p.moves.push_back(square);
+                }
+            }
+        }
+
+        if (pos_y + p.colour <= 7 &&
+            pos_y + p.colour >= 0 &&
+            pos_x + 1 <= 7 &&
+            (8*(pos_x + 1) + pos_y + p.colour == king.check_vectors[0] ||
+            (8*(pos_x + 1) + pos_y + p.colour == pos.passant && king.check_vectors[0] == pos.passant - p.colour)))
+        {
+            p.moves.push_back(8*(pos_x + 1) + pos_y + p.colour);
+        }
+
+        if (pos_y + p.colour <= 7 &&
+            pos_y + p.colour >= 0 &&
+            pos_x - 1 <= 7 &&
+            (8*(pos_x - 1) + pos_y + p.colour == king.check_vectors[0] ||
+            (8*(pos_x - 1) + pos_y + p.colour == pos.passant && king.check_vectors[0] == pos.passant - p.colour)))
+        {
+            p.moves.push_back(8*(pos_x - 1) + pos_y + p.colour);
+        }
+
+        return;
+    }
+
+    if (p.pin_vector >= 0)
+    {
+        if ((p.pin_vector == p.position + 8 + p.colour || p.pin_vector == p.position - 8 + p.colour) &&
+             pos.occupancy[p.pin_vector])
+        {
+            p.moves.push_back(p.pin_vector);
+        }
+
+        return;
+    }
+
+    const int y = p.position % 8;
+    const int x = (p.position - y)/8;
+
+    if (y + 2*p.colour <= 7 &&
+        y + 2*p.colour >= 0 && 
+        pos.occupancy[8*x + y + p.colour] == 0  &&
+        pos.occupancy[8*x + y + 2*p.colour] == 0 &&
+        p.position == 8*p.id - 71 - 123*parity)
+    {
+        p.moves.push_back(8*x + y + p.colour);
+        p.moves.push_back(8*x + y + 2*p.colour);
+    }
+
+    else if (y + p.colour <= 7 &&
+             y + p.colour >= 0 && 
+             pos.occupancy[8*x + y + p.colour] == 0)
+    {
+        p.moves.push_back(8*x + y + p.colour);
+    }
+
+    if (y + p.colour <= 7 &&
+        y + p.colour >= 0 &&
+        x + 1 <= 7 &&
+        (p.colour*GetColour(pos, 8*(x + 1) + y + p.colour) == -1 || 8*(x + 1) + y + p.colour == pos.passant))
+    {
+        p.moves.push_back(8*(x + 1) + y + p.colour);
+    }
+
+    if (y + p.colour <= 7 &&
+        y + p.colour >= 0 &&
+        x - 1 >= 0 &&
+        (p.colour*GetColour(pos, 8*(x - 1) + y + p.colour) == -1 || 8*(x - 1) + y + p.colour == pos.passant))
+    {
+        p.moves.push_back(8*(x - 1) + y + p.colour);
+    }
+}
+
+void Board::GetKingMoves(Piece& p, Position& pos)
+{
+    const int parity = (1 - pos.turn)/2;
+    const int pos_y = p.position % 8;
+    const int pos_x = (p.position - pos_y)/8;
+    size_t checks = p.check_vectors.size();
+    const std::vector<std::vector<int>>& vectors = King::vectors;
+
+    for (auto vector = vectors.begin(); vector < vectors.end(); ++vector)
+    {
+        for (int direction = -1; direction < 2; direction += 2)
+        {
+            const int x_movement = direction*(*vector)[1];
+            const int y_movement = direction*(*vector)[0];
+
+            if (pos_x + x_movement <= 7 && 
+                pos_y + y_movement <= 7 && 
+                pos_x + x_movement >= 0 && 
+                pos_y + y_movement >= 0)
+            {
+                const int square = 8*(pos_x + x_movement) + pos_y + y_movement;
+                size_t controlled = pos.control[1 - parity][square].size();
+
+                if (p.colour*GetColour(pos, square) == 1 || controlled)
+                {
+                    continue;
+                }
+
+                p.moves.push_back(square);
+            }
+        }
+    }
+
+    if (checks > 0)
+    {
+        return;
+    }
+
+    if (pos.kingsidecastling[parity] &&
+        !pos.occupancy[8*(pos_x + 1) + pos_y] && 
+        !pos.occupancy[8*(pos_x + 2) + pos_y] &&
+        !pos.control[1 - parity][8*(pos_x + 1) + pos_y].size() &&
+        !pos.control[1 - parity][8*(pos_x + 2) + pos_y].size())
+    {
+        p.moves.push_back(-1);
+    }
+
+    if (pos.queensidecastling[(1 - p.colour)/2] && 
+        !pos.occupancy[8*(pos_x - 1) + pos_y] && 
+        !pos.occupancy[8*(pos_x - 2) + pos_y] && 
+        !pos.occupancy[8*(pos_x - 3) + pos_y] &&
+        !pos.control[1 - parity][8*(pos_x -1) + pos_y].size() &&
+        !pos.control[1 - parity][8*(pos_x -1) + pos_y].size())
+    {
+        p.moves.push_back(-2);
     }
 }
 
@@ -561,7 +1059,7 @@ void Board::PrintPosition(Position& pos)
 
             else 
             {
-                Piece& p = pieces[pos.occupancy[8*j + i] - 1];
+                Piece& p = pos.pieces[pos.occupancy[8*j + i] - 1];
                 char alignment = p.colour == 1 ? 'w' : 'b';
                 std::cout << alignment << p.name << ' ';
             }
@@ -571,21 +1069,20 @@ void Board::PrintPosition(Position& pos)
 
 void Board::DisplayMoves(const Position& pos)
 {
+    const int parity = (1 - pos.turn)/2;
     GetMoves(current);
 
     std::cout << std::endl;
 
-    for (int i = 0; i < 16; ++i)
+    for (int i = 16*parity; i < 16*(parity + 1); ++i)
     {
-        int index = i + 8*(1 - pos.turn);
+        const Piece& p = pos.pieces[i];
 
-        if (pos.piece_occupancy[index] >= 0)
+        if (p.awake)
         {   
             std::cout << std::endl;
 
-            std::vector<int>& moves = pieces[index].moves;
-
-            int n_moves = moves.size();
+            size_t n_moves = p.moves.size();
 
             if (!n_moves)
             {
@@ -593,22 +1090,22 @@ void Board::DisplayMoves(const Position& pos)
                 continue;
             }
 
-            for (int i = 0; i < n_moves; ++i)
+            for (auto move = p.moves.begin(); move < p.moves.end(); ++move)
             {
-                if (moves[i] == -1)
+                if (*move == -1)
                 {
                     std::cout << "O-O" << ' ';
                     continue;
                 }
 
-                else if (moves[i] == -2)
+                else if (*move == -2)
                 {
                     std::cout << "OOO" << ' ';
                     continue;
                 }
 
 
-                std::cout << pieces[index].name << GetSquare(moves[i]) << ' ';
+                std::cout << p.name << GetSquare(*move) << ' ';
             }
         }
     }
@@ -617,36 +1114,6 @@ void Board::DisplayMoves(const Position& pos)
 Board::Board()
 {
     current = Position();
-
-    pieces = std::vector<Piece>(32);
-
-    pieces[0] = Rook(1, 0);
-    pieces[1] = Knight(2, 8);
-    pieces[2] = Bishop(3, 16);
-    pieces[3] = Queen(4, 24);
-    pieces[4] = King(5, 32);
-    pieces[5] = Bishop(6, 40);
-    pieces[6] = Knight(7, 48);
-    pieces[7] = Rook(8, 56);
-
-    for (int i = 0; i < 8; ++i)
-    {
-        pieces[8 + i] = Pawn(i + 9, 8*i + 1);
-    }
-
-    pieces[16] = Rook(17, 7);
-    pieces[17] = Knight(18, 15);
-    pieces[18] = Bishop(19, 23);
-    pieces[19] = Queen(20, 31);
-    pieces[20] = King(21, 39);
-    pieces[21] = Bishop(22, 47);
-    pieces[22] = Knight(23, 55);
-    pieces[23] = Rook(24, 63);
-
-    for (int i = 0; i < 8; ++i)
-    {
-        pieces[i + 24] = Pawn(i + 25, 8*i + 6);
-    }
 }
 
 Board::~Board()
